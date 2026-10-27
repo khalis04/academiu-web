@@ -3,6 +3,7 @@ import StudentPerformanceReport from './components/StudentPerformanceReport';
 import AchievementReport from './components/AchievementReport';
 import SettingsTab from './components/SettingsTab';
 import AiDiagnostic from './components/AiDiagnostic';
+import Registration from './components/Registration';
 import {
   LayoutDashboard,
   Database,
@@ -12,7 +13,8 @@ import {
   Award,
   Settings,
   LogOut,
-  Bell
+  Bell,
+  UserPlus
 } from 'lucide-react';
 
 export default function App() {
@@ -20,6 +22,7 @@ export default function App() {
 
   // Updated navigation menu: Admin Portal removed and replaced with Settings
   const menuItems = [
+    { id: 'registration', label: 'Registration', icon: UserPlus },
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'records', label: 'Academic Records (CRUDS)', icon: Database },
     { id: 'diagnostic', label: 'AI Weakness Diagnostic', icon: Brain },
@@ -111,6 +114,12 @@ export default function App() {
 
 
         {/* Settings Module */}
+        
+        {/* Registration Module */}
+        {activeTab === 'registration' && (
+          <Registration onNavigate={(tab) => setActiveTab(tab)} />
+          )}
+
         {activeTab === 'settings' && (
           <SettingsTab onNavigate={(tab) => setActiveTab(tab)} />
         )}
