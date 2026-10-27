@@ -33,7 +33,7 @@
   box-sizing: border-box;
 }
 
-.awd-root button {
+:where(.awd-root) button {
   font: inherit;
 }
 
