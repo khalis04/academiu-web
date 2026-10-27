@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import StudentPerformanceReport from './components/StudentPerformanceReport';
 import SettingsTab from './components/SettingsTab';
+import AiDiagnostic from './components/AiDiagnostic';
 import {
   LayoutDashboard,
   Database,
@@ -102,6 +103,9 @@ export default function App() {
           <SettingsTab onNavigate={(tab) => setActiveTab(tab)} />
         )}
 
+        {/* AI Weakness Diagnostic Module */}
+        {activeTab === 'diagnostic' && <AiDiagnostic />}
+
         {/* Dashboard Placeholder */}
         {activeTab === 'dashboard' && (
           <div className="p-8">
@@ -117,7 +121,7 @@ export default function App() {
         )}
 
         {/* Teammate Placeholders */}
-        {['records', 'diagnostic', 'generator', 'achievement'].includes(activeTab) && (
+        {['records', 'generator', 'achievement'].includes(activeTab) && (
           <div className="p-8 text-center mt-20">
             <h2 className="text-xl font-bold text-slate-700 capitalize">
               {menuItems.find(m => m.id === activeTab)?.label}
