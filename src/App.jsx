@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import StudentPerformanceReport from './components/StudentPerformanceReport';
+import AchievementReport from './components/AchievementReport';
 import SettingsTab from './components/SettingsTab';
 import AiDiagnostic from './components/AiDiagnostic';
 import {
@@ -97,6 +98,17 @@ export default function App() {
             }}
           />
         )}
+
+         {activeTab === 'achievement' && (
+     <AchievementReport
+       onNavigate={(tab) => setActiveTab(tab)}
+       onNavigateToDrill={(dimension) => {
+         alert(`Navigating to AI Question Generator for dimension: ${dimension}`);
+         setActiveTab('generator');
+       }}
+     />
+   )}
+
 
         {/* Settings Module */}
         {activeTab === 'settings' && (
