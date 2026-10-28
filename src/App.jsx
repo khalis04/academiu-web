@@ -4,6 +4,7 @@ import AchievementReport from './components/AchievementReport';
 import SettingsTab from './components/SettingsTab';
 import AiDiagnostic from './components/AiDiagnostic';
 import Registration from './components/Registration';
+import QuestionGenerator from './components/QuestionGenerator';
 import {
   LayoutDashboard,
   Database,
@@ -111,15 +112,18 @@ export default function App() {
        }}
      />
    )}
-
-
-        {/* Settings Module */}
         
         {/* Registration Module */}
         {activeTab === 'registration' && (
           <Registration onNavigate={(tab) => setActiveTab(tab)} />
-          )}
+        )}
 
+        {/* AI Question Generator Module */}
+        {activeTab === 'generator' && (
+          <QuestionGenerator onNavigate={(tab) => setActiveTab(tab)} />
+        )}
+
+        {/* Settings Module */}
         {activeTab === 'settings' && (
           <SettingsTab onNavigate={(tab) => setActiveTab(tab)} />
         )}
@@ -142,7 +146,7 @@ export default function App() {
         )}
 
         {/* Teammate Placeholders */}
-        {['records', 'generator', 'achievement'].includes(activeTab) && (
+        {['records', 'achievement'].includes(activeTab) && (
           <div className="p-8 text-center mt-20">
             <h2 className="text-xl font-bold text-slate-700 capitalize">
               {menuItems.find(m => m.id === activeTab)?.label}
