@@ -3,6 +3,8 @@ import StudentPerformanceReport from './components/StudentPerformanceReport';
 import AchievementReport from './components/AchievementReport';
 import SettingsTab from './components/SettingsTab';
 import AiDiagnostic from './components/AiDiagnostic';
+import Registration from './components/Registration';
+import QuestionGenerator from './components/QuestionGenerator';
 import {
   LayoutDashboard,
   Database,
@@ -11,8 +13,14 @@ import {
   BarChart2,
   Award,
   Settings,
+<<<<<<< HEAD
   ChevronLeft,
   ChevronRight
+=======
+  LogOut,
+  Bell,
+  UserPlus
+>>>>>>> c6da15e4a6e77e859a3090e4c91255c1e42ee91e
 } from 'lucide-react';
 
 export default function App() {
@@ -21,6 +29,7 @@ export default function App() {
 
   // System navigation items
   const menuItems = [
+    { id: 'registration', label: 'Registration', icon: UserPlus },
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'records', label: 'Academic Records (CRUDS)', icon: Database },
     { id: 'diagnostic', label: 'AI Weakness Diagnostic', icon: Brain },
@@ -135,6 +144,7 @@ export default function App() {
           />
         )}
 
+<<<<<<< HEAD
         {/* Module 5: Student Achievement Report (Teammate's Module) */}
         {activeTab === 'achievement' && (
           <AchievementReport
@@ -149,6 +159,26 @@ export default function App() {
         {/* AI Weakness Diagnostic Module (Teammate's Module) */}
         {activeTab === 'diagnostic' && (
           <AiDiagnostic onNavigate={(tab) => setActiveTab(tab)} />
+=======
+         {activeTab === 'achievement' && (
+     <AchievementReport
+       onNavigate={(tab) => setActiveTab(tab)}
+       onNavigateToDrill={(dimension) => {
+         alert(`Navigating to AI Question Generator for dimension: ${dimension}`);
+         setActiveTab('generator');
+       }}
+     />
+   )}
+        
+        {/* Registration Module */}
+        {activeTab === 'registration' && (
+          <Registration onNavigate={(tab) => setActiveTab(tab)} />
+        )}
+
+        {/* AI Question Generator Module */}
+        {activeTab === 'generator' && (
+          <QuestionGenerator onNavigate={(tab) => setActiveTab(tab)} />
+>>>>>>> c6da15e4a6e77e859a3090e4c91255c1e42ee91e
         )}
 
         {/* Settings Module */}
@@ -180,8 +210,13 @@ export default function App() {
           </div>
         )}
 
+<<<<<<< HEAD
         {/* Teammates' Unmerged Modules Fallback (Records and Question Generator) */}
         {['records', 'generator'].includes(activeTab) && (
+=======
+        {/* Teammate Placeholders */}
+        {['records', 'achievement'].includes(activeTab) && (
+>>>>>>> c6da15e4a6e77e859a3090e4c91255c1e42ee91e
           <div className="p-8 text-center mt-20">
             <h2 className="text-xl font-bold text-slate-700 capitalize">
               {menuItems.find((m) => m.id === activeTab)?.label}
