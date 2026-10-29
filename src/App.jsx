@@ -13,14 +13,9 @@ import {
   BarChart2,
   Award,
   Settings,
-<<<<<<< HEAD
   ChevronLeft,
-  ChevronRight
-=======
-  LogOut,
-  Bell,
+  ChevronRight,
   UserPlus
->>>>>>> c6da15e4a6e77e859a3090e4c91255c1e42ee91e
 } from 'lucide-react';
 
 export default function App() {
@@ -131,7 +126,7 @@ export default function App() {
         </div>
       </aside>
 
-      {/* Main Content Area (Naturally expands/contracts with sidebar state) */}
+      {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto">
         {/* Module 4: Student Performance Report (Your Assigned Module) */}
         {activeTab === 'performance' && (
@@ -144,32 +139,22 @@ export default function App() {
           />
         )}
 
-<<<<<<< HEAD
-        {/* Module 5: Student Achievement Report (Teammate's Module) */}
+        {/* Module 5: Student Achievement Report */}
         {activeTab === 'achievement' && (
           <AchievementReport
             onNavigate={(tab) => setActiveTab(tab)}
             onNavigateToDrill={(dimension) => {
-              alert(`Navigating to AI Question Generator for: ${dimension}`);
+              alert(`Navigating to AI Question Generator for dimension: ${dimension}`);
               setActiveTab('generator');
             }}
           />
         )}
 
-        {/* AI Weakness Diagnostic Module (Teammate's Module) */}
+        {/* AI Weakness Diagnostic Module */}
         {activeTab === 'diagnostic' && (
           <AiDiagnostic onNavigate={(tab) => setActiveTab(tab)} />
-=======
-         {activeTab === 'achievement' && (
-     <AchievementReport
-       onNavigate={(tab) => setActiveTab(tab)}
-       onNavigateToDrill={(dimension) => {
-         alert(`Navigating to AI Question Generator for dimension: ${dimension}`);
-         setActiveTab('generator');
-       }}
-     />
-   )}
-        
+        )}
+
         {/* Registration Module */}
         {activeTab === 'registration' && (
           <Registration onNavigate={(tab) => setActiveTab(tab)} />
@@ -178,7 +163,6 @@ export default function App() {
         {/* AI Question Generator Module */}
         {activeTab === 'generator' && (
           <QuestionGenerator onNavigate={(tab) => setActiveTab(tab)} />
->>>>>>> c6da15e4a6e77e859a3090e4c91255c1e42ee91e
         )}
 
         {/* Settings Module */}
@@ -210,16 +194,11 @@ export default function App() {
           </div>
         )}
 
-<<<<<<< HEAD
-        {/* Teammates' Unmerged Modules Fallback (Records and Question Generator) */}
-        {['records', 'generator'].includes(activeTab) && (
-=======
-        {/* Teammate Placeholders */}
-        {['records', 'achievement'].includes(activeTab) && (
->>>>>>> c6da15e4a6e77e859a3090e4c91255c1e42ee91e
+        {/* Unmerged Teammate Modules Fallback (Records module) */}
+        {activeTab === 'records' && (
           <div className="p-8 text-center mt-20">
             <h2 className="text-xl font-bold text-slate-700 capitalize">
-              {menuItems.find((m) => m.id === activeTab)?.label}
+              Academic Records (CRUDS)
             </h2>
             <p className="text-sm text-slate-400 mt-2">
               This module slot is ready for your teammate to plug in their component.
