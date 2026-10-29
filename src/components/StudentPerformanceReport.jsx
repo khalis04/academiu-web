@@ -27,7 +27,8 @@ import {
     Sparkles,
     ChevronRight,
     Award,
-    ArrowUpRight
+    ArrowUpRight,
+    ArrowLeft
 } from 'lucide-react';
 
 ChartJS.register(
@@ -41,7 +42,7 @@ ChartJS.register(
     LinearScale
 );
 
-// ERD Table 2.2: ExamResult (ExamID, UserID, SubjectName, Score, MaxScore, Source, ExamDate)
+// ERD Table 2.2: ExamResult
 const INITIAL_EXAM_RESULTS = [
     {
         examID: 'EXM-001',
@@ -49,7 +50,7 @@ const INITIAL_EXAM_RESULTS = [
         subjectName: 'Mathematics',
         score: 55,
         maxScore: 100,
-        source: 'previous', // Baseline before system usage
+        source: 'previous',
         examDate: '2026-08-14'
     },
     {
@@ -58,7 +59,7 @@ const INITIAL_EXAM_RESULTS = [
         subjectName: 'Mathematics',
         score: 72,
         maxScore: 100,
-        source: 'system', // Post-remediation improvement
+        source: 'system',
         examDate: '2026-10-24'
     }
 ];
@@ -69,13 +70,13 @@ const INITIAL_SESSIONS = [
         sessionID: 'SESS-1001',
         userID: 'USR-B032410622',
         sessionAt: '2026-10-18',
-        purpose: 'practice', // ERD: 'practice' or 'validation'
+        purpose: 'practice',
         subjectName: 'Data Communication & Networking',
         topic: 'Subnet Masking & IP Arithmetic',
-        weaknessType: 'calculation', // ERD: WeaknessRecord.Type ('calculation', 'language', 'problem-solving', 'memorisation')
-        validated: true, // ERD: WeaknessRecord.Validated (Boolean)
+        weaknessType: 'calculation',
+        validated: true,
         totalQuestions: 10,
-        correctAttempts: 5, // Count of PracticeAttempt where IsCorrect = true
+        correctAttempts: 5,
         timeSpent: '14 mins',
         aiFeedback: 'Response timing indicates calculation hesitation on formula steps. Bitwise conversion errors detected.'
     },
@@ -139,18 +140,16 @@ const INITIAL_SESSIONS = [
 
 export default function StudentPerformanceReport({ onNavigate, onNavigateToDrill }) {
     const [selectedSubject, setSelectedSubject] = useState('All');
-    const [selectedType, setSelectedType] = useState('All'); // ERD: WeaknessRecord.Type
+    const [selectedType, setSelectedType] = useState('All');
     const [searchQuery, setSearchQuery] = useState('');
     const [sessionList] = useState(INITIAL_SESSIONS);
     const [examResults] = useState(INITIAL_EXAM_RESULTS);
     const [selectedRecord, setSelectedRecord] = useState(null);
 
-    // Calculate comparative improvement from ERD ExamResult (Previous vs System)
     const previousExam = examResults.find(e => e.source === 'previous');
     const systemExam = examResults.find(e => e.source === 'system');
     const examImprovement = systemExam && previousExam ? systemExam.score - previousExam.score : 0;
 
-    // Filter sessions dynamically based on ERD SubjectName, Weakness Type, or Search query
     const filteredSessions = useMemo(() => {
         return sessionList.filter((session) => {
             const matchesSubject = selectedSubject === 'All' || session.subjectName.toLowerCase().includes(selectedSubject.toLowerCase());
@@ -165,7 +164,6 @@ export default function StudentPerformanceReport({ onNavigate, onNavigateToDrill
         });
     }, [sessionList, selectedSubject, selectedType, searchQuery]);
 
-    // Weakness dimension cards mapped strictly to ERD WeaknessRecord.Type
     const weaknessDimensions = [
         {
             type: 'calculation',
@@ -256,9 +254,109 @@ export default function StudentPerformanceReport({ onNavigate, onNavigateToDrill
         },
     };
 
+    // -------------------------------------------------------------
+    // FULL PAGE IN-MODULE INSPECTION VIEW (REPLACES POPUP)
+    // -------------------------------------------------------------
+    if (selectedRecord) {
+        const accuracyPercent = Math.round((selectedRecord.correctAttempts / selectedRecord.totalQuestions) * 100);
+
+        return (
+            <div className="p-4 md:p-8 bg-slate-50 min-h-screen text-slate-800 space-y-6">
+                {/* Navigation Bar */}
+                <div className="flex items-center justify-between pb-4 border-b border-slate-200">
+                    <button
+                        onClick={() => setSelectedRecord(null)}
+                        className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-blue-600 transition bg-white border border-slate-200 px-3.5 py-2 rounded-lg shadow-sm"
+                    >
+                        <ArrowLeft className="w-3.5 h-3.5" />
+                        Back to Performance Overview
+                    </button>
+                    <span className="font-mono text-xs text-slate-400">
+                        Session ID: {selectedRecord.sessionID}
+                    </span>
+                </div>
+
+                {/* Detailed Breakdown Card */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 md:p-8 space-y-6">
+                    <div>
+                        <span className="text-slate-400 uppercase font-bold text-xs tracking-wider">
+                            Practice Session Topic & Focus
+                        </span>
+                        <h1 className="text-2xl md:text-3xl font-bold text-slate-900 mt-1">
+                            {selectedRecord.topic}
+                        </h1>
+                        <p className="text-sm text-slate-500 mt-1">
+                            Subject Name: <span className="font-medium text-slate-700">{selectedRecord.subjectName}</span>
+                        </p>
+                    </div>
+
+                    {/* Key Metrics */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 text-center">
+                            <span className="text-[11px] uppercase font-bold text-slate-400">Weakness Dimension</span>
+                            <div className="text-xl font-bold text-slate-800 capitalize mt-1">
+                                {selectedRecord.weaknessType}
+                            </div>
+                            <div className={`text-xs mt-1 font-semibold ${selectedRecord.validated ? 'text-rose-600' : 'text-slate-500'}`}>
+                                {selectedRecord.validated ? '● Validated Weakness' : '○ Unvalidated'}
+                            </div>
+                        </div>
+
+                        <div className="p-4 bg-blue-50/70 rounded-xl border border-blue-100 text-center">
+                            <span className="text-[11px] uppercase font-bold text-blue-500">Attempt Accuracy</span>
+                            <div className="text-2xl font-bold text-blue-700 mt-1">{accuracyPercent}%</div>
+                            <div className="text-xs text-blue-600 mt-1 font-mono">
+                                {selectedRecord.correctAttempts} / {selectedRecord.totalQuestions} Questions Correct
+                            </div>
+                        </div>
+
+                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 text-center">
+                            <span className="text-[11px] uppercase font-bold text-slate-400">Session Purpose</span>
+                            <div className="text-xl font-bold text-slate-800 capitalize mt-1">
+                                {selectedRecord.purpose}
+                            </div>
+                            <div className="text-xs text-slate-500 mt-1">
+                                Completed on {selectedRecord.sessionAt} ({selectedRecord.timeSpent})
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* AI Diagnostic Reasoning Box */}
+                    <div className="text-slate-700 bg-blue-50/60 border border-blue-200/80 p-5 rounded-xl text-sm leading-relaxed">
+                        <strong className="text-blue-900 block mb-1">Gemini AI Diagnostic Reasoning:</strong>
+                        {selectedRecord.aiFeedback}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                        <button
+                            onClick={() => setSelectedRecord(null)}
+                            className="px-5 py-2.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-semibold transition"
+                        >
+                            Close & Return
+                        </button>
+                        <button
+                            onClick={() => {
+                                const type = selectedRecord.weaknessType;
+                                setSelectedRecord(null);
+                                if (onNavigateToDrill) onNavigateToDrill(type);
+                            }}
+                            className="px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow transition"
+                        >
+                            Retake Similar Drill
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // -------------------------------------------------------------
+    // DEFAULT PERFORMANCE DASHBOARD VIEW
+    // -------------------------------------------------------------
     return (
-        <div className="p-4 md:p-8 bg-slate-50 min-h-screen text-slate-800">
-            {/* Top Header & Two-Step Breadcrumb */}
+        <div className="p-4 md:p-8 bg-slate-50 min-h-screen text-slate-800 space-y-6">
+            {/* 1. Header with Breadcrumb */}
             <div className="flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-slate-200 gap-4">
                 <div>
                     <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs mb-1.5 text-slate-500">
@@ -275,7 +373,7 @@ export default function StudentPerformanceReport({ onNavigate, onNavigateToDrill
                         </span>
                     </nav>
 
-                    <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Student Performance Report </h1>
+                    <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Student Performance Report 📊</h1>
                     <p className="text-sm text-slate-500">
                         Formative diagnostic evaluation mapping Sessions, PracticeAttempts, and Validated Weaknesses.
                     </p>
@@ -290,8 +388,8 @@ export default function StudentPerformanceReport({ onNavigate, onNavigateToDrill
                 </button>
             </div>
 
-            {/* ERD ExamResult Benchmark Banner: Shows Before vs After System Improvement */}
-            <div className="mt-6 bg-gradient-to-r from-blue-900 to-indigo-900 rounded-xl p-5 text-white flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+            {/* 2. ERD ExamResult Benchmark Banner */}
+            <div className="bg-gradient-to-r from-blue-900 to-indigo-900 rounded-xl p-5 text-white flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
                 <div className="flex items-start gap-3.5">
                     <div className="p-2.5 bg-blue-800/80 rounded-lg text-blue-200">
                         <Award className="w-6 h-6" />
@@ -321,8 +419,8 @@ export default function StudentPerformanceReport({ onNavigate, onNavigateToDrill
                 </div>
             </div>
 
-            {/* Priority Weakness Call-To-Action Banner */}
-            <div className="mt-4 bg-gradient-to-r from-rose-50 to-amber-50 border border-rose-200 rounded-xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+            {/* 3. Priority Weakness Call-To-Action Banner */}
+            <div className="bg-gradient-to-r from-rose-50 to-amber-50 border border-rose-200 rounded-xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
                 <div className="flex items-start gap-3">
                     <div className="p-2 bg-rose-100 text-rose-700 rounded-lg shrink-0">
                         <AlertTriangle className="w-6 h-6" />
@@ -351,8 +449,8 @@ export default function StudentPerformanceReport({ onNavigate, onNavigateToDrill
                 </button>
             </div>
 
-            {/* 3 Summary KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+            {/* 4. Three Summary KPI Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                     <div className="flex items-center justify-between text-slate-500 mb-2">
                         <span className="text-xs font-semibold uppercase">Practice Average</span>
@@ -383,8 +481,8 @@ export default function StudentPerformanceReport({ onNavigate, onNavigateToDrill
                 </div>
             </div>
 
-            {/* WeaknessRecord.Type Mapping Cards */}
-            <div className="mt-6 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            {/* 5. WeaknessRecord Dimension Mapping */}
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-2">
                     <div>
                         <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -415,15 +513,15 @@ export default function StudentPerformanceReport({ onNavigate, onNavigateToDrill
                                 key={dim.type}
                                 onClick={() => setSelectedType(isSelected ? 'All' : dim.type)}
                                 className={`p-4 rounded-xl border cursor-pointer transition-all hover:shadow-md ${isSelected
-                                    ? dim.activeRing
-                                    : 'border-slate-200 bg-slate-50/40 hover:border-slate-300'
+                                        ? dim.activeRing
+                                        : 'border-slate-200 bg-slate-50/40 hover:border-slate-300'
                                     }`}
                             >
                                 <div className="flex items-center justify-between mb-2">
                                     <span className="text-xs font-bold text-slate-700">{dim.label}</span>
                                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${dim.type === 'calculation'
-                                        ? 'bg-rose-100 text-rose-700'
-                                        : 'bg-emerald-100 text-emerald-700'
+                                            ? 'bg-rose-100 text-rose-700'
+                                            : 'bg-emerald-100 text-emerald-700'
                                         }`}>
                                         {dim.score}%
                                     </span>
@@ -448,8 +546,8 @@ export default function StudentPerformanceReport({ onNavigate, onNavigateToDrill
                 </div>
             </div>
 
-            {/* Analytics Charts Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6">
+            {/* 6. Analytics Charts Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 <div className="lg:col-span-5 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
                     <div>
                         <h2 className="text-base font-bold text-slate-900">Cognitive Balance (Radar)</h2>
@@ -480,8 +578,8 @@ export default function StudentPerformanceReport({ onNavigate, onNavigateToDrill
                 </div>
             </div>
 
-            {/* Practice Sessions Log (ERD: Session & PracticeAttempt Mapping) */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm mt-6 overflow-hidden">
+            {/* 7. Practice Sessions Log */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                         <div className="flex items-center gap-2">
@@ -526,7 +624,6 @@ export default function StudentPerformanceReport({ onNavigate, onNavigateToDrill
                     </div>
                 </div>
 
-                {/* Sessions Data Table */}
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse text-xs">
                         <thead>
@@ -628,90 +725,6 @@ export default function StudentPerformanceReport({ onNavigate, onNavigateToDrill
                     </table>
                 </div>
             </div>
-
-            {/* Drill-Down Details Modal */}
-            {selectedRecord && (
-                <div
-                    onClick={() => setSelectedRecord(null)}
-                    className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-                >
-                    <div
-                        onClick={(e) => e.stopPropagation()}
-                        className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl border border-slate-200"
-                    >
-                        <div className="flex items-center justify-between pb-3 border-b">
-                            <div>
-                                <h3 className="font-bold text-slate-900 text-base">Session Breakdown</h3>
-                                <span className="text-[10px] text-slate-400 font-mono">SessionID: {selectedRecord.sessionID}</span>
-                            </div>
-                            <button
-                                onClick={() => setSelectedRecord(null)}
-                                className="text-slate-400 hover:text-slate-600 font-bold text-lg"
-                            >
-                                ✕
-                            </button>
-                        </div>
-
-                        <div className="py-4 space-y-3 text-xs">
-                            <div>
-                                <span className="text-slate-400 uppercase font-semibold text-[10px]">Topic & Focus</span>
-                                <p className="font-semibold text-slate-800 text-sm">{selectedRecord.topic}</p>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                    <span className="text-slate-400 uppercase font-semibold text-[10px]">Subject Name</span>
-                                    <p className="font-medium text-slate-800">{selectedRecord.subjectName}</p>
-                                </div>
-                                <div>
-                                    <span className="text-slate-400 uppercase font-semibold text-[10px]">Weakness Type</span>
-                                    <p className="font-medium text-slate-800 capitalize">{selectedRecord.weaknessType}</p>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                    <span className="text-slate-400 uppercase font-semibold text-[10px]">Session Purpose</span>
-                                    <p className="font-medium text-slate-800 capitalize">{selectedRecord.purpose}</p>
-                                </div>
-                                <div>
-                                    <span className="text-slate-400 uppercase font-semibold text-[10px]">Validation Status</span>
-                                    <p className={`font-semibold ${selectedRecord.validated ? 'text-rose-600' : 'text-slate-600'}`}>
-                                        {selectedRecord.validated ? 'Weakness Validated' : 'Unvalidated'}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="p-3 bg-slate-50 rounded-lg flex items-center justify-between">
-                                <span>Attempt Accuracy: <strong>{Math.round((selectedRecord.correctAttempts / selectedRecord.totalQuestions) * 100)}%</strong></span>
-                                <span>PracticeAttempts: <strong>{selectedRecord.correctAttempts} / {selectedRecord.totalQuestions}</strong></span>
-                            </div>
-
-                            <div className="text-slate-700 bg-blue-50 border border-blue-200 p-3 rounded-lg leading-relaxed">
-                                <strong>AI Diagnostic Reasoning:</strong> {selectedRecord.aiFeedback}
-                            </div>
-                        </div>
-
-                        <div className="mt-4 flex justify-end gap-2">
-                            <button
-                                onClick={() => {
-                                    setSelectedRecord(null);
-                                    if (onNavigateToDrill) onNavigateToDrill(selectedRecord.weaknessType);
-                                }}
-                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-semibold"
-                            >
-                                Retake Similar Drill
-                            </button>
-                            <button
-                                onClick={() => setSelectedRecord(null)}
-                                className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-xs font-semibold"
-                            >
-                                Close
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

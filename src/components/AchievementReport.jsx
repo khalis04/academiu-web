@@ -31,6 +31,7 @@ import {
     Star,
     ChevronRight,
     RotateCcw,
+    ArrowLeft
 } from 'lucide-react';
 
 ChartJS.register(
@@ -45,13 +46,6 @@ ChartJS.register(
     Legend
 );
 
-/* ------------------------------------------------------------------ */
-/*  SAMPLE DATA                                                        */
-/*  "before" = previous exam result recorded at student registration.  */
-/*  "sessions" = practice scores after joining ACADEMIU (these match   */
-/*  the Performance Report history, so both pages tell the same story).*/
-/*  Replace with API / database data later.                            */
-/* ------------------------------------------------------------------ */
 const PASS_MARK = 60;
 
 const SUBJECTS = [
@@ -92,7 +86,6 @@ const SUBJECTS = [
     },
 ];
 
-// "before" = initial AI diagnostic at registration, "after" = current practice average
 const DIMENSIONS = [
     { name: 'Calculation', before: 35, after: 48 },
     { name: 'Language Comprehension', before: 62, after: 90 },
@@ -100,7 +93,6 @@ const DIMENSIONS = [
     { name: 'Memorisation', before: 60, after: 85 },
 ];
 
-// Past-year paper trends (2022–2025) vs. how the student is doing on each topic
 const TOPIC_TRENDS = [
     { topic: 'Recurrence Relations & Master Method', subject: 'BITC2113', years: 4, score: 40 },
     { topic: 'Subnet Masking & IP Arithmetic', subject: 'BITS1313', years: 4, score: 55 },
@@ -113,7 +105,6 @@ const TOTAL_PAPER_YEARS = 4;
 /* ------------------------------ helpers ----------------------------- */
 const mean = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
 
-// Indicative grade only (not the official university grading scheme)
 const toGrade = (s) =>
     s >= 80 ? 'A' : s >= 75 ? 'A-' : s >= 70 ? 'B+' : s >= 65 ? 'B' : s >= 60 ? 'B-' : s >= 55 ? 'C+' : s >= 50 ? 'C' : s >= 40 ? 'D' : 'F';
 
@@ -148,7 +139,7 @@ const ALL_SESSIONS = SUBJECTS.flatMap((s) => s.sessions.map((x) => ({ ...x, code
 const DIM_ROWS = DIMENSIONS.map((d) => ({ ...d, change: d.after - d.before }));
 
 export default function AchievementReport({ onNavigate, onNavigateToDrill }) {
-    const [subjectFilter, setSubjectFilter] = useState('All'); // All | Improved | Declined
+    const [subjectFilter, setSubjectFilter] = useState('All');
     const [selectedSubject, setSelectedSubject] = useState(null);
 
     /* ---------- headline numbers ---------- */
@@ -179,7 +170,6 @@ export default function AchievementReport({ onNavigate, onNavigateToDrill }) {
         return SUBJECT_ROWS;
     }, [subjectFilter]);
 
-    /* ---------- derived achievements (unlock automatically from data) ---------- */
     const achievements = [
         { id: 'first', title: 'First Steps', desc: 'Complete your first practice drill', icon: Play, progress: Math.min(ALL_SESSIONS.length, 1), target: 1 },
         { id: 'five', title: 'Consistent Learner', desc: 'Complete 5 practice sessions', icon: Flame, progress: ALL_SESSIONS.length, target: 5 },
@@ -190,7 +180,6 @@ export default function AchievementReport({ onNavigate, onNavigateToDrill }) {
     ].map((a) => ({ ...a, unlocked: a.progress >= a.target }));
     const unlockedCount = achievements.filter((a) => a.unlocked).length;
 
-    /* ---------- charts ---------- */
     const legendOpts = { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, font: { size: 11 } } };
 
     const subjectBarData = {
@@ -286,9 +275,116 @@ export default function AchievementReport({ onNavigate, onNavigateToDrill }) {
         (a, b) => (b.years / TOTAL_PAPER_YEARS) * (100 - b.score) - (a.years / TOTAL_PAPER_YEARS) * (100 - a.score)
     )[0];
 
+    // -------------------------------------------------------------
+    // FULL PAGE IN-MODULE INSPECTION VIEW (REPLACES POPUP)
+    // -------------------------------------------------------------
+    if (selectedSubject) {
+        return (
+            <div className="p-4 md:p-8 bg-slate-50 min-h-screen text-slate-800 space-y-6">
+                {/* Navigation Bar */}
+                <div className="flex items-center justify-between pb-4 border-b border-slate-200">
+                    <button
+                        onClick={() => setSelectedSubject(null)}
+                        className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-blue-600 transition bg-white border border-slate-200 px-3.5 py-2 rounded-lg shadow-sm"
+                    >
+                        <ArrowLeft className="w-3.5 h-3.5" />
+                        Back to Achievement Report
+                    </button>
+                    <span className="font-mono text-xs text-slate-400">
+                        Subject Code: {selectedSubject.code}
+                    </span>
+                </div>
+
+                {/* Detailed Breakdown Card */}
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 md:p-8 space-y-6">
+                    <div>
+                        <span className="text-slate-400 uppercase font-bold text-xs tracking-wider">
+                            Subject Achievement Record
+                        </span>
+                        <h1 className="text-2xl md:text-3xl font-bold text-slate-900 mt-1">
+                            {selectedSubject.code} — {selectedSubject.name}
+                        </h1>
+                    </div>
+
+                    {/* Key Metrics */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 text-center">
+                            <span className="text-[11px] uppercase font-bold text-slate-400">Before ACADEMIU</span>
+                            <div className="text-2xl font-bold text-slate-800 mt-1">{selectedSubject.before}%</div>
+                            <div className="text-xs text-slate-500 mt-0.5">Grade {selectedSubject.gradeBefore}</div>
+                        </div>
+
+                        <div className="p-4 bg-blue-50/70 rounded-xl border border-blue-100 text-center">
+                            <span className="text-[11px] uppercase font-bold text-blue-500">After ACADEMIU</span>
+                            <div className="text-2xl font-bold text-blue-700 mt-1">{selectedSubject.after}%</div>
+                            <div className="text-xs text-blue-500 mt-0.5">Grade {selectedSubject.gradeAfter}</div>
+                        </div>
+
+                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 text-center">
+                            <span className="text-[11px] uppercase font-bold text-slate-400">Overall Progress</span>
+                            <div className={`text-2xl font-bold mt-1 ${deltaStyle(selectedSubject.change).text}`}>
+                                {fmtDelta(selectedSubject.change)}
+                            </div>
+                            <div className="text-xs text-slate-500 mt-0.5">{deltaStyle(selectedSubject.change).label}</div>
+                        </div>
+                    </div>
+
+                    {/* Practice Attempts Log */}
+                    <div>
+                        <h3 className="text-xs uppercase font-bold text-slate-400 tracking-wider mb-2">
+                            Recorded Practice Attempts
+                        </h3>
+                        <ul className="space-y-2">
+                            {selectedSubject.sessions.map((x) => (
+                                <li
+                                    key={x.date + x.topic}
+                                    className="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-100"
+                                >
+                                    <span className="text-slate-700 font-medium text-xs">
+                                        {shortDate(x.date)} — {x.topic}
+                                    </span>
+                                    <strong className="text-slate-900 font-bold text-sm">{x.score}%</strong>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+
+                    {/* AI Feedback Box */}
+                    <div className="text-slate-700 bg-blue-50/70 border border-blue-200/80 p-5 rounded-xl text-sm leading-relaxed">
+                        <strong className="text-blue-900 block mb-1">Gemini AI Feedback:</strong>
+                        {selectedSubject.aiNote}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                        <button
+                            onClick={() => setSelectedSubject(null)}
+                            className="px-5 py-2.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-semibold transition"
+                        >
+                            Back to All Subjects
+                        </button>
+                        <button
+                            onClick={() => {
+                                const dim = selectedSubject.weakDimension;
+                                setSelectedSubject(null);
+                                if (onNavigateToDrill) onNavigateToDrill(dim);
+                            }}
+                            className="px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow transition"
+                        >
+                            Practise This Subject
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // -------------------------------------------------------------
+    // DEFAULT ACHIEVEMENT REPORT VIEW
+    // -------------------------------------------------------------
     return (
-        <div className="p-4 md:p-8 bg-slate-50 min-h-screen text-slate-800">
-            {/* Header & two-step breadcrumb */}
+        <div className="p-4 md:p-8 bg-slate-50 min-h-screen text-slate-800 space-y-6">
+            {/* 1. Header with Breadcrumb */}
             <div className="flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-slate-200 gap-4">
                 <div>
                     <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs mb-1.5 text-slate-500">
@@ -320,9 +416,9 @@ export default function AchievementReport({ onNavigate, onNavigateToDrill }) {
                 </button>
             </div>
 
-            {/* Overall verdict banner */}
+            {/* 2. Overall Verdict Banner */}
             <div
-                className={`mt-6 border rounded-xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm bg-gradient-to-r ${overallUp ? 'from-emerald-50 to-blue-50 border-emerald-200' : 'from-rose-50 to-amber-50 border-rose-200'
+                className={`border rounded-xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm bg-gradient-to-r ${overallUp ? 'from-emerald-50 to-blue-50 border-emerald-200' : 'from-rose-50 to-amber-50 border-rose-200'
                     }`}
             >
                 <div className="flex items-start gap-3">
@@ -349,8 +445,8 @@ export default function AchievementReport({ onNavigate, onNavigateToDrill }) {
                 </button>
             </div>
 
-            {/* 4 summary cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+            {/* 3. Four Summary Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
                     <div className="flex items-center justify-between text-slate-500 mb-2">
                         <span className="text-xs font-semibold uppercase">Before ACADEMIU</span>
@@ -359,8 +455,8 @@ export default function AchievementReport({ onNavigate, onNavigateToDrill }) {
                     <div className="text-2xl font-bold text-slate-900">{stats.avgBefore.toFixed(1)}%</div>
                     <span
                         className={`inline-block mt-2 text-xs font-semibold px-2 py-0.5 rounded border ${stats.avgBefore >= PASS_MARK
-                            ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                            : 'text-amber-700 bg-amber-50 border-amber-200'
+                                ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                                : 'text-amber-700 bg-amber-50 border-amber-200'
                             }`}
                     >
                         {stats.avgBefore >= PASS_MARK ? 'Passing' : `Below ${PASS_MARK}% pass mark`}
@@ -375,8 +471,8 @@ export default function AchievementReport({ onNavigate, onNavigateToDrill }) {
                     <div className="text-2xl font-bold text-slate-900">{stats.avgAfter.toFixed(1)}%</div>
                     <span
                         className={`inline-block mt-2 text-xs font-semibold px-2 py-0.5 rounded border ${stats.avgAfter >= PASS_MARK
-                            ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                            : 'text-amber-700 bg-amber-50 border-amber-200'
+                                ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                                : 'text-amber-700 bg-amber-50 border-amber-200'
                             }`}
                     >
                         {stats.avgAfter >= PASS_MARK ? `Passing (target is ${PASS_MARK}%)` : `Below ${PASS_MARK}% pass mark`}
@@ -406,8 +502,8 @@ export default function AchievementReport({ onNavigate, onNavigateToDrill }) {
                 </div>
             </div>
 
-            {/* Charts: subject before/after + dimension radar */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6">
+            {/* 4. Charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 <div className="lg:col-span-7 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
                     <div>
                         <h2 className="text-base font-bold text-slate-900">Before vs After by Subject</h2>
@@ -439,8 +535,8 @@ export default function AchievementReport({ onNavigate, onNavigateToDrill }) {
                 </div>
             </div>
 
-            {/* Dimension progress cards */}
-            <div className="mt-6 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            {/* 5. Dimension Progress Cards */}
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                 <div className="pb-4 border-b border-slate-100">
                     <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                         <Sparkles className="w-4 h-4 text-blue-600" />
@@ -477,7 +573,7 @@ export default function AchievementReport({ onNavigate, onNavigateToDrill }) {
                                         <span className="w-10">After</span>
                                         <div className="flex-1 bg-slate-200 h-2 rounded-full overflow-hidden">
                                             <div
-                                                className={`h-full transition-all duration-500 ${passing ? 'bg-emerald-500' : 'bg-rose-500'}`}
+                                                className={`h-full ${passing ? 'bg-emerald-500' : 'bg-rose-500'}`}
                                                 style={{ width: `${d.after}%` }}
                                             />
                                         </div>
@@ -504,8 +600,8 @@ export default function AchievementReport({ onNavigate, onNavigateToDrill }) {
                 </div>
             </div>
 
-            {/* Trend line + past-year topic readiness */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6">
+            {/* 6. Trend Line & Past-Year Topic Readiness */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 <div className="lg:col-span-7 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
                     <div>
                         <h2 className="text-base font-bold text-slate-900">Progress Since You Joined</h2>
@@ -564,8 +660,8 @@ export default function AchievementReport({ onNavigate, onNavigateToDrill }) {
                 </div>
             </div>
 
-            {/* Subject comparison table */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm mt-6 overflow-hidden">
+            {/* 7. Subject Comparison Table */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                         <div className="flex items-center gap-2">
@@ -585,8 +681,8 @@ export default function AchievementReport({ onNavigate, onNavigateToDrill }) {
                                 key={f}
                                 onClick={() => setSubjectFilter(f)}
                                 className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition ${subjectFilter === f
-                                    ? 'bg-blue-600 text-white border-blue-600'
-                                    : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-100'
+                                        ? 'bg-blue-600 text-white border-blue-600'
+                                        : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-100'
                                     }`}
                             >
                                 {f}
@@ -670,8 +766,8 @@ export default function AchievementReport({ onNavigate, onNavigateToDrill }) {
                 </div>
             </div>
 
-            {/* Achievements */}
-            <div className="mt-6 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            {/* 8. Achievements Milestone Grid */}
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-2">
                     <div>
                         <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -718,8 +814,8 @@ export default function AchievementReport({ onNavigate, onNavigateToDrill }) {
                 </div>
             </div>
 
-            {/* AI summary & next steps */}
-            <div className="mt-6 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+            {/* 9. AI Progress Summary */}
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                 <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-blue-600" />
                     AI Progress Summary & Next Steps
@@ -755,95 +851,6 @@ export default function AchievementReport({ onNavigate, onNavigateToDrill }) {
                     practice average, so treat the comparison as a progress indicator rather than a predicted exam mark.
                 </p>
             </div>
-
-            {/* Subject breakdown modal */}
-            {selectedSubject && (
-                <div
-                    onClick={() => setSelectedSubject(null)}
-                    className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-                >
-                    <div
-                        onClick={(e) => e.stopPropagation()}
-                        className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl border border-slate-200"
-                    >
-                        <div className="flex items-center justify-between pb-3 border-b">
-                            <h3 className="font-bold text-slate-900 text-base">Subject Achievement Breakdown</h3>
-                            <button
-                                onClick={() => setSelectedSubject(null)}
-                                className="text-slate-400 hover:text-slate-600 font-bold text-lg"
-                            >
-                                ✕
-                            </button>
-                        </div>
-
-                        <div className="py-4 space-y-3 text-xs">
-                            <div>
-                                <span className="text-slate-400 uppercase font-semibold text-[10px]">Subject</span>
-                                <p className="font-semibold text-slate-800 text-sm">
-                                    {selectedSubject.code} - {selectedSubject.name}
-                                </p>
-                            </div>
-
-                            <div className="grid grid-cols-3 gap-2">
-                                <div className="p-3 bg-slate-50 rounded-lg text-center">
-                                    <div className="text-[10px] uppercase font-semibold text-slate-400">Before</div>
-                                    <div className="text-lg font-bold text-slate-700">{selectedSubject.before}%</div>
-                                    <div className="text-[11px] text-slate-500">Grade {selectedSubject.gradeBefore}</div>
-                                </div>
-                                <div className="p-3 bg-blue-50 rounded-lg text-center">
-                                    <div className="text-[10px] uppercase font-semibold text-blue-400">After</div>
-                                    <div className="text-lg font-bold text-blue-700">{selectedSubject.after}%</div>
-                                    <div className="text-[11px] text-slate-500">Grade {selectedSubject.gradeAfter}</div>
-                                </div>
-                                <div className="p-3 bg-slate-50 rounded-lg text-center">
-                                    <div className="text-[10px] uppercase font-semibold text-slate-400">Change</div>
-                                    <div className={`text-lg font-bold ${deltaStyle(selectedSubject.change).text}`}>
-                                        {fmtDelta(selectedSubject.change)}
-                                    </div>
-                                    <div className="text-[11px] text-slate-500">{deltaStyle(selectedSubject.change).label}</div>
-                                </div>
-                            </div>
-
-                            <div>
-                                <span className="text-slate-400 uppercase font-semibold text-[10px]">Practice sessions</span>
-                                <ul className="mt-1 space-y-1">
-                                    {selectedSubject.sessions.map((x) => (
-                                        <li key={x.date + x.topic} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg">
-                                            <span className="text-slate-700 truncate pr-2">
-                                                {shortDate(x.date)} • {x.topic}
-                                            </span>
-                                            <strong className="text-slate-900">{x.score}%</strong>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-
-                            <div className="text-slate-700 bg-blue-50 border border-blue-200 p-3 rounded-lg leading-relaxed">
-                                <strong>Gemini AI Feedback:</strong> {selectedSubject.aiNote}
-                            </div>
-                        </div>
-
-                        <div className="mt-4 flex justify-end gap-2">
-                            <button
-                                onClick={() => {
-                                    const dim = selectedSubject.weakDimension;
-                                    setSelectedSubject(null);
-                                    if (onNavigateToDrill) onNavigateToDrill(dim);
-                                }}
-                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-semibold"
-                            >
-                                Practise This Subject
-                            </button>
-                            <button
-                                onClick={() => setSelectedSubject(null)}
-                                className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-xs font-semibold"
-                            >
-                                Close
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 }
