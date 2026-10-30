@@ -28,7 +28,9 @@ import {
     ChevronRight,
     Award,
     ArrowUpRight,
-    ArrowLeft
+    ArrowLeft,
+    Info,
+    HelpCircle
 } from 'lucide-react';
 
 ChartJS.register(
@@ -64,26 +66,26 @@ const INITIAL_EXAM_RESULTS = [
     }
 ];
 
-// ERD Table 2.5 (Session) joined with Table 2.3 (WeaknessRecord) & Table 2.6 (PracticeAttempt)
+// ERD Session joined with WeaknessRecord & PracticeAttempt
 const INITIAL_SESSIONS = [
     {
         sessionID: 'SESS-1001',
         userID: 'USR-B032410622',
-        sessionAt: '2026-10-18',
+        sessionAt: '18 Oct 2026',
         purpose: 'practice',
-        subjectName: 'Data Communication & Networking',
+        subjectName: 'Data Comm & Networking',
         topic: 'Subnet Masking & IP Arithmetic',
         weaknessType: 'calculation',
         validated: true,
         totalQuestions: 10,
         correctAttempts: 5,
         timeSpent: '14 mins',
-        aiFeedback: 'Response timing indicates calculation hesitation on formula steps. Bitwise conversion errors detected.'
+        aiFeedback: 'You took longer on calculation formulas. Review binary to decimal conversions to speed up.'
     },
     {
         sessionID: 'SESS-1002',
         userID: 'USR-B032410622',
-        sessionAt: '2026-10-16',
+        sessionAt: '16 Oct 2026',
         purpose: 'validation',
         subjectName: 'Database Systems',
         topic: 'B-Tree Indexing and 3NF Normalization',
@@ -92,12 +94,12 @@ const INITIAL_SESSIONS = [
         totalQuestions: 10,
         correctAttempts: 8,
         timeSpent: '11 mins',
-        aiFeedback: 'Sound relational logic. Solved Boyce-Codd anomalies without errors.'
+        aiFeedback: 'Great job! You solved normalization anomalies with no major errors.'
     },
     {
         sessionID: 'SESS-1003',
         userID: 'USR-B032410622',
-        sessionAt: '2026-10-12',
+        sessionAt: '12 Oct 2026',
         purpose: 'practice',
         subjectName: 'Workshop 2',
         topic: 'Software Requirements & SRS Ambiguity',
@@ -106,26 +108,26 @@ const INITIAL_SESSIONS = [
         totalQuestions: 10,
         correctAttempts: 9,
         timeSpent: '8 mins',
-        aiFeedback: 'Strong natural language comprehension and ambiguity resolution across SRS specifications.'
+        aiFeedback: 'Strong reading comprehension. You easily spotted unclear requirement statements.'
     },
     {
         sessionID: 'SESS-1004',
         userID: 'USR-B032410622',
-        sessionAt: '2026-10-09',
+        sessionAt: '09 Oct 2026',
         purpose: 'validation',
-        subjectName: 'Data Communication & Networking',
+        subjectName: 'Data Comm & Networking',
         topic: 'OSI Reference Model Architecture',
         weaknessType: 'memorisation',
         validated: true,
         totalQuestions: 10,
         correctAttempts: 8,
         timeSpent: '7 mins',
-        aiFeedback: 'Accurate recall of protocol encapsulation layers and header offsets.'
+        aiFeedback: 'Accurate memory recall of protocol layers and headers.'
     },
     {
         sessionID: 'SESS-1005',
         userID: 'USR-B032410622',
-        sessionAt: '2026-10-04',
+        sessionAt: '04 Oct 2026',
         purpose: 'practice',
         subjectName: 'Data Structures',
         topic: 'Recurrence Relations & Master Method',
@@ -134,7 +136,7 @@ const INITIAL_SESSIONS = [
         totalQuestions: 10,
         correctAttempts: 4,
         timeSpent: '16 mins',
-        aiFeedback: 'Critical calculation errors when calculating logarithm base steps in Master Theorem equations.'
+        aiFeedback: 'Calculation mistakes occurred in log base calculations. Needs one more drill.'
     },
 ];
 
@@ -169,8 +171,10 @@ export default function StudentPerformanceReport({ onNavigate, onNavigateToDrill
             type: 'calculation',
             label: 'Calculation',
             score: 48,
-            status: 'Needs Revision',
-            activeRing: 'ring-2 ring-rose-500 bg-rose-50/50',
+            status: 'Needs Practice',
+            desc: 'Math, formulas, and numeric logic',
+            activeRing: 'ring-2 ring-rose-500 bg-rose-50/70',
+            badgeColor: 'bg-rose-100 text-rose-700',
             barColor: 'bg-rose-500'
         },
         {
@@ -178,23 +182,29 @@ export default function StudentPerformanceReport({ onNavigate, onNavigateToDrill
             label: 'Language',
             score: 90,
             status: 'Mastered',
-            activeRing: 'ring-2 ring-emerald-500 bg-emerald-50/50',
+            desc: 'Reading questions and vocabulary',
+            activeRing: 'ring-2 ring-emerald-500 bg-emerald-50/70',
+            badgeColor: 'bg-emerald-100 text-emerald-700',
             barColor: 'bg-emerald-500'
         },
         {
             type: 'problem-solving',
             label: 'Problem-Solving',
             score: 80,
-            status: 'Proficient',
-            activeRing: 'ring-2 ring-blue-500 bg-blue-50/50',
+            status: 'Good Shape',
+            desc: 'Applying concepts step-by-step',
+            activeRing: 'ring-2 ring-blue-500 bg-blue-50/70',
+            badgeColor: 'bg-blue-100 text-blue-700',
             barColor: 'bg-blue-500'
         },
         {
             type: 'memorisation',
             label: 'Memorisation',
             score: 85,
-            status: 'Proficient',
-            activeRing: 'ring-2 ring-indigo-500 bg-indigo-50/50',
+            status: 'Good Shape',
+            desc: 'Remembering facts and definitions',
+            activeRing: 'ring-2 ring-indigo-500 bg-indigo-50/70',
+            badgeColor: 'bg-indigo-100 text-indigo-700',
             barColor: 'bg-indigo-500'
         },
     ];
@@ -203,9 +213,9 @@ export default function StudentPerformanceReport({ onNavigate, onNavigateToDrill
         labels: ['Calculation', 'Language', 'Problem-Solving', 'Memorisation'],
         datasets: [
             {
-                label: 'Proficiency Score (%)',
+                label: 'Your Current Score (%)',
                 data: [48, 90, 80, 85],
-                backgroundColor: 'rgba(37, 99, 235, 0.2)',
+                backgroundColor: 'rgba(37, 99, 235, 0.15)',
                 borderColor: '#2563EB',
                 borderWidth: 2,
                 pointBackgroundColor: '#2563EB',
@@ -226,18 +236,18 @@ export default function StudentPerformanceReport({ onNavigate, onNavigateToDrill
     };
 
     const lineChartData = {
-        labels: ['Session 1005', 'Session 1004', 'Session 1003', 'Session 1002', 'Session 1001'],
+        labels: ['Drill 1', 'Drill 2', 'Drill 3', 'Drill 4', 'Drill 5'],
         datasets: [
             {
-                label: 'Session Accuracy (%)',
+                label: 'Quiz Score (%)',
                 data: [40, 80, 90, 80, 50],
                 borderColor: '#2563EB',
-                backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                backgroundColor: 'rgba(37, 99, 235, 0.08)',
                 tension: 0.35,
                 fill: true,
             },
             {
-                label: 'Passing Standard (60%)',
+                label: 'Passing Line (60%)',
                 data: [60, 60, 60, 60, 60],
                 borderColor: '#94A3B8',
                 borderDash: [5, 5],
@@ -255,85 +265,84 @@ export default function StudentPerformanceReport({ onNavigate, onNavigateToDrill
     };
 
     // -------------------------------------------------------------
-    // FULL PAGE IN-MODULE INSPECTION VIEW (REPLACES POPUP)
+    // FULL-PAGE IN-MODULE DETAIL VIEW (CLICKING A ROW)
     // -------------------------------------------------------------
     if (selectedRecord) {
         const accuracyPercent = Math.round((selectedRecord.correctAttempts / selectedRecord.totalQuestions) * 100);
 
         return (
             <div className="p-4 md:p-8 bg-slate-50 min-h-screen text-slate-800 space-y-6">
-                {/* Navigation Bar */}
+                {/* Top return bar */}
                 <div className="flex items-center justify-between pb-4 border-b border-slate-200">
                     <button
                         onClick={() => setSelectedRecord(null)}
-                        className="inline-flex items-center gap-2 text-xs font-semibold text-slate-600 hover:text-blue-600 transition bg-white border border-slate-200 px-3.5 py-2 rounded-lg shadow-sm"
+                        className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 hover:text-blue-600 transition bg-white border border-slate-200 px-4 py-2 rounded-xl shadow-sm hover:border-blue-300"
                     >
-                        <ArrowLeft className="w-3.5 h-3.5" />
-                        Back to Performance Overview
+                        <ArrowLeft className="w-4 h-4 text-blue-600" />
+                        Back to Report Overview
                     </button>
                     <span className="font-mono text-xs text-slate-400">
-                        Session ID: {selectedRecord.sessionID}
+                        ID: {selectedRecord.sessionID}
                     </span>
                 </div>
 
-                {/* Detailed Breakdown Card */}
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 md:p-8 space-y-6">
+                {/* Detailed Card */}
+                <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 md:p-8 space-y-6">
                     <div>
-                        <span className="text-slate-400 uppercase font-bold text-xs tracking-wider">
-                            Practice Session Topic & Focus
+                        <span className="text-[10px] uppercase font-bold tracking-wider text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200">
+                            Practice Session Details
                         </span>
-                        <h1 className="text-2xl md:text-3xl font-bold text-slate-900 mt-1">
+                        <h1 className="text-2xl md:text-3xl font-black text-slate-900 mt-2">
                             {selectedRecord.topic}
                         </h1>
-                        <p className="text-sm text-slate-500 mt-1">
-                            Subject Name: <span className="font-medium text-slate-700">{selectedRecord.subjectName}</span>
+                        <p className="text-sm text-slate-500 mt-0.5">
+                            Subject: <strong className="text-slate-700">{selectedRecord.subjectName}</strong>
                         </p>
                     </div>
 
-                    {/* Key Metrics */}
+                    {/* 3 Simple Stat Blocks */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 text-center">
-                            <span className="text-[11px] uppercase font-bold text-slate-400">Weakness Dimension</span>
+                        <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-100 text-center">
+                            <span className="text-[11px] uppercase font-bold text-slate-400">Skill Category</span>
                             <div className="text-xl font-bold text-slate-800 capitalize mt-1">
                                 {selectedRecord.weaknessType}
                             </div>
-                            <div className={`text-xs mt-1 font-semibold ${selectedRecord.validated ? 'text-rose-600' : 'text-slate-500'}`}>
-                                {selectedRecord.validated ? '● Validated Weakness' : '○ Unvalidated'}
-                            </div>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                                {selectedRecord.validated ? 'Confirmed by test' : 'Not confirmed'}
+                            </p>
                         </div>
 
-                        <div className="p-4 bg-blue-50/70 rounded-xl border border-blue-100 text-center">
-                            <span className="text-[11px] uppercase font-bold text-blue-500">Attempt Accuracy</span>
-                            <div className="text-2xl font-bold text-blue-700 mt-1">{accuracyPercent}%</div>
-                            <div className="text-xs text-blue-600 mt-1 font-mono">
-                                {selectedRecord.correctAttempts} / {selectedRecord.totalQuestions} Questions Correct
-                            </div>
+                        <div className="p-4 bg-blue-50/60 rounded-xl border border-blue-100 text-center">
+                            <span className="text-[11px] uppercase font-bold text-blue-500">Your Accuracy</span>
+                            <div className="text-2xl font-black text-blue-600 mt-1">{accuracyPercent}%</div>
+                            <p className="text-xs text-blue-500 mt-0.5 font-medium">
+                                {selectedRecord.correctAttempts} of {selectedRecord.totalQuestions} questions correct
+                            </p>
                         </div>
 
-                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-100 text-center">
-                            <span className="text-[11px] uppercase font-bold text-slate-400">Session Purpose</span>
-                            <div className="text-xl font-bold text-slate-800 capitalize mt-1">
-                                {selectedRecord.purpose}
-                            </div>
-                            <div className="text-xs text-slate-500 mt-1">
-                                Completed on {selectedRecord.sessionAt} ({selectedRecord.timeSpent})
-                            </div>
+                        <div className="p-4 bg-slate-50/80 rounded-xl border border-slate-100 text-center">
+                            <span className="text-[11px] uppercase font-bold text-slate-400">Time Taken</span>
+                            <div className="text-xl font-bold text-slate-800 mt-1">{selectedRecord.timeSpent}</div>
+                            <p className="text-xs text-slate-500 mt-0.5">Practiced on {selectedRecord.sessionAt}</p>
                         </div>
                     </div>
 
-                    {/* AI Diagnostic Reasoning Box */}
-                    <div className="text-slate-700 bg-blue-50/60 border border-blue-200/80 p-5 rounded-xl text-sm leading-relaxed">
-                        <strong className="text-blue-900 block mb-1">Gemini AI Diagnostic Reasoning:</strong>
+                    {/* AI Advice Box */}
+                    <div className="text-slate-700 bg-blue-50/50 border border-blue-200/70 p-5 rounded-xl text-xs sm:text-sm leading-relaxed">
+                        <strong className="text-blue-900 block mb-1 flex items-center gap-1.5">
+                            <Sparkles className="w-4 h-4 text-blue-600" />
+                            AI Advice for Next Time:
+                        </strong>
                         {selectedRecord.aiFeedback}
                     </div>
 
-                    {/* Actions */}
+                    {/* Bottom Actions */}
                     <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
                         <button
                             onClick={() => setSelectedRecord(null)}
-                            className="px-5 py-2.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 text-xs font-semibold transition"
+                            className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold transition"
                         >
-                            Close & Return
+                            Close
                         </button>
                         <button
                             onClick={() => {
@@ -341,9 +350,10 @@ export default function StudentPerformanceReport({ onNavigate, onNavigateToDrill
                                 setSelectedRecord(null);
                                 if (onNavigateToDrill) onNavigateToDrill(type);
                             }}
-                            className="px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow transition"
+                            className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-500/20 transition flex items-center gap-1.5"
                         >
-                            Retake Similar Drill
+                            <Play className="w-3.5 h-3.5 fill-current" />
+                            Practice {selectedRecord.weaknessType} Again
                         </button>
                     </div>
                 </div>
@@ -352,181 +362,180 @@ export default function StudentPerformanceReport({ onNavigate, onNavigateToDrill
     }
 
     // -------------------------------------------------------------
-    // DEFAULT PERFORMANCE DASHBOARD VIEW
+    // MAIN DASHBOARD (CLEAN, CLEAR, AND POLISHED)
     // -------------------------------------------------------------
     return (
         <div className="p-4 md:p-8 bg-slate-50 min-h-screen text-slate-800 space-y-6">
-            {/* 1. Header with Breadcrumb */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-slate-200 gap-4">
+
+            {/* 1. Page Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between pb-5 border-b border-slate-200 gap-4">
                 <div>
-                    <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs mb-1.5 text-slate-500">
+                    <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs mb-1.5 text-slate-400">
                         <button
                             type="button"
-                            onClick={() => onNavigate ? onNavigate('dashboard') : alert('Navigating to Dashboard')}
-                            className="font-medium text-slate-500 hover:text-blue-600 transition hover:underline"
+                            onClick={() => onNavigate ? onNavigate('dashboard') : null}
+                            className="hover:text-blue-600 transition"
                         >
                             Home
                         </button>
-                        <span className="text-slate-300">/</span>
-                        <span className="font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                            Student Performance Report
-                        </span>
+                        <span>/</span>
+                        <span className="font-semibold text-blue-600">Performance Report</span>
                     </nav>
 
-                    <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Student Performance Report 📊</h1>
-                    <p className="text-sm text-slate-500">
-                        Formative diagnostic evaluation mapping Sessions, PracticeAttempts, and Validated Weaknesses.
+                    <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
+                        Performance Report
+                    </h1>
+                    <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+                        See where you are doing well and what areas need a quick review.
                     </p>
                 </div>
 
                 <button
                     onClick={() => window.print()}
-                    className="flex items-center justify-center gap-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 px-4 py-2.5 rounded-lg shadow-sm text-sm font-medium transition"
+                    className="flex items-center justify-center gap-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 px-4 py-2.5 rounded-xl shadow-sm text-xs font-bold transition"
                 >
-                    <Download className="w-4 h-4 text-slate-500" />
-                    Save as PDF
+                    <Download className="w-4 h-4 text-slate-400" />
+                    Save PDF
                 </button>
             </div>
 
-            {/* 2. ERD ExamResult Benchmark Banner */}
-            <div className="bg-gradient-to-r from-blue-900 to-indigo-900 rounded-xl p-5 text-white flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
-                <div className="flex items-start gap-3.5">
-                    <div className="p-2.5 bg-blue-800/80 rounded-lg text-blue-200">
-                        <Award className="w-6 h-6" />
+            {/* 2. Before vs After Banner (Clear Proof of Progress) */}
+            <div className="bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-800 rounded-2xl p-5 md:p-6 text-white flex flex-col md:flex-row md:items-center justify-between gap-5 shadow-lg shadow-blue-500/10">
+                <div className="flex items-start gap-4">
+                    <div className="p-3 bg-white/10 rounded-xl text-blue-200 backdrop-blur-sm shrink-0">
+                        <Award className="w-7 h-7 text-yellow-300" />
                     </div>
                     <div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-[11px] font-semibold uppercase tracking-wider bg-blue-800/60 px-2 py-0.5 rounded text-blue-200 border border-blue-700/50">
-                                ERD ExamResult Analysis
-                            </span>
-                            <span className="text-xs text-blue-200 font-mono">Subject: {previousExam?.subjectName}</span>
-                        </div>
-                        <h3 className="font-bold text-lg mt-0.5">
-                            Comparative Gain: +{examImprovement} Points Improvement
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-white/20 px-2.5 py-0.5 rounded-full text-blue-100">
+                            Your Progress So Far
+                        </span>
+                        <h3 className="font-black text-xl md:text-2xl mt-1 tracking-tight">
+                            +{examImprovement} Points Improvement
                         </h3>
-                        <p className="text-xs text-blue-200/90 mt-0.5">
-                            Baseline Previous Exam ({previousExam?.score}/100) vs System Post-Practice Score ({systemExam?.score}/100).
+                        <p className="text-xs text-blue-100/90 mt-0.5 max-w-xl">
+                            You scored <strong>{previousExam?.score}%</strong> before using the system. After practicing, your score reached <strong>{systemExam?.score}%</strong> in {previousExam?.subjectName}.
                         </p>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3 bg-white/10 px-4 py-2.5 rounded-lg border border-white/10 self-start md:self-auto">
-                    <div className="text-right">
-                        <div className="text-[10px] uppercase font-semibold text-blue-200">System Result</div>
-                        <div className="text-xl font-bold">{systemExam?.score}%</div>
+                <div className="flex items-center gap-3 bg-white/10 px-5 py-3 rounded-xl border border-white/10 self-start md:self-auto backdrop-blur-sm">
+                    <div>
+                        <div className="text-[10px] uppercase font-bold text-blue-200">Latest Score</div>
+                        <div className="text-2xl font-black">{systemExam?.score}%</div>
                     </div>
-                    <ArrowUpRight className="w-5 h-5 text-emerald-400" />
+                    <ArrowUpRight className="w-6 h-6 text-emerald-300" />
                 </div>
             </div>
 
-            {/* 3. Priority Weakness Call-To-Action Banner */}
-            <div className="bg-gradient-to-r from-rose-50 to-amber-50 border border-rose-200 rounded-xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
-                <div className="flex items-start gap-3">
-                    <div className="p-2 bg-rose-100 text-rose-700 rounded-lg shrink-0">
+            {/* 3. Priority Recommendation Banner */}
+            <div className="bg-gradient-to-r from-rose-50 to-orange-50 border border-rose-200/80 rounded-2xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-start gap-3.5">
+                    <div className="p-2.5 bg-rose-100 text-rose-600 rounded-xl shrink-0">
                         <AlertTriangle className="w-6 h-6" />
                     </div>
                     <div>
                         <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold uppercase bg-rose-200/70 text-rose-800 px-2 py-0.5 rounded">
-                                Validated WeaknessRecord
+                            <span className="text-[10px] font-bold uppercase bg-rose-200/80 text-rose-800 px-2 py-0.5 rounded">
+                                Needs Attention
                             </span>
-                            <span className="text-xs font-semibold text-rose-700">Type: calculation</span>
+                            <span className="text-xs font-bold text-rose-700">Calculation is your lowest skill</span>
                         </div>
-                        <h3 className="font-bold text-slate-900 text-base mt-1">
-                            Primary Academic Vulnerability: Calculation (48% Accuracy)
-                        </h3>
-                        <p className="text-sm text-slate-600 mt-0.5">
-                            Subnet arithmetic and logarithm recurrences resulted in multiple failed practice attempts.
+                        <h4 className="font-bold text-slate-900 text-sm md:text-base mt-1">
+                            Your current calculation accuracy is 48%
+                        </h4>
+                        <p className="text-xs text-slate-600 mt-0.5">
+                            Take a short 5-minute drill to turn this weakness into a strength.
                         </p>
                     </div>
                 </div>
                 <button
                     onClick={() => onNavigateToDrill ? onNavigateToDrill('calculation') : setSelectedType('calculation')}
-                    className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm px-5 py-2.5 rounded-lg shadow transition whitespace-nowrap"
+                    className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-5 py-3 rounded-xl shadow-md shadow-blue-600/20 transition whitespace-nowrap"
                 >
                     <Play className="w-4 h-4 fill-current" />
-                    Start Practice Session
+                    Start Quick Practice Drill
                 </button>
             </div>
 
-            {/* 4. Three Summary KPI Cards */}
+            {/* 4. Quick Overview Numbers */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                    <div className="flex items-center justify-between text-slate-500 mb-2">
-                        <span className="text-xs font-semibold uppercase">Practice Average</span>
+                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
+                    <div className="flex items-center justify-between text-slate-400 mb-2">
+                        <span className="text-xs font-bold uppercase tracking-wider">Average Practice Score</span>
                         <TrendingUp className="w-4 h-4 text-blue-600" />
                     </div>
-                    <div className="text-2xl font-bold text-slate-900">68.0%</div>
-                    <span className="inline-block mt-2 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                        Passing Target: 60%
-                    </span>
+                    <div className="text-2xl font-black text-slate-900">68.0%</div>
+                    <div className="mt-2 text-[11px] font-semibold text-emerald-600 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        Above the 60% passing mark
+                    </div>
                 </div>
 
-                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                    <div className="flex items-center justify-between text-slate-500 mb-2">
-                        <span className="text-xs font-semibold uppercase">Total Sessions</span>
+                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
+                    <div className="flex items-center justify-between text-slate-400 mb-2">
+                        <span className="text-xs font-bold uppercase tracking-wider">Completed Sessions</span>
                         <Clock className="w-4 h-4 text-indigo-600" />
                     </div>
-                    <div className="text-2xl font-bold text-slate-900">{sessionList.length} Rounds</div>
-                    <p className="text-xs text-slate-500 mt-2">Practice & Validation Sessions</p>
+                    <div className="text-2xl font-black text-slate-900">{sessionList.length} Rounds</div>
+                    <p className="text-[11px] text-slate-400 mt-2">Short drills and quizzes finished</p>
                 </div>
 
-                <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                    <div className="flex items-center justify-between text-slate-500 mb-2">
-                        <span className="text-xs font-semibold uppercase">Subject Coverage</span>
+                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm">
+                    <div className="flex items-center justify-between text-slate-400 mb-2">
+                        <span className="text-xs font-bold uppercase tracking-wider">Subjects Covered</span>
                         <BookOpen className="w-4 h-4 text-emerald-600" />
                     </div>
-                    <div className="text-2xl font-bold text-slate-900">3 Subjects</div>
-                    <p className="text-xs text-slate-500 mt-2">Active curriculum modules</p>
+                    <div className="text-2xl font-black text-slate-900">3 Subjects</div>
+                    <p className="text-[11px] text-slate-400 mt-2">Active university course modules</p>
                 </div>
             </div>
 
-            {/* 5. WeaknessRecord Dimension Mapping */}
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-2">
+            {/* 5. Four Skill Category Cards (Interactive Filter) */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
                     <div>
                         <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                             <Sparkles className="w-4 h-4 text-blue-600" />
-                            WeaknessRecord Dimension Mapping
+                            Skill Breakdown
                         </h2>
                         <p className="text-xs text-slate-500">
-                            Filter practice history by clicking a WeaknessRecord type defined in the database.
+                            Click any card below to filter your practice history for that specific skill.
                         </p>
                     </div>
 
                     {selectedType !== 'All' && (
                         <button
                             onClick={() => setSelectedType('All')}
-                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-200 transition"
+                            className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg border border-blue-200 transition"
                         >
                             <RotateCcw className="w-3.5 h-3.5" />
-                            Filtered by: {selectedType} (Reset)
+                            Showing: {selectedType} (Click to Reset)
                         </button>
                     )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     {weaknessDimensions.map((dim) => {
                         const isSelected = selectedType.toLowerCase() === dim.type;
                         return (
                             <div
                                 key={dim.type}
                                 onClick={() => setSelectedType(isSelected ? 'All' : dim.type)}
-                                className={`p-4 rounded-xl border cursor-pointer transition-all hover:shadow-md ${isSelected
-                                        ? dim.activeRing
-                                        : 'border-slate-200 bg-slate-50/40 hover:border-slate-300'
+                                className={`p-4 rounded-xl border cursor-pointer transition-all ${isSelected
+                                    ? dim.activeRing
+                                    : 'border-slate-200 bg-slate-50/50 hover:border-slate-300 hover:bg-slate-50'
                                     }`}
                             >
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-xs font-bold text-slate-700">{dim.label}</span>
-                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${dim.type === 'calculation'
-                                            ? 'bg-rose-100 text-rose-700'
-                                            : 'bg-emerald-100 text-emerald-700'
-                                        }`}>
+                                <div className="flex items-center justify-between mb-1">
+                                    <span className="text-xs font-bold text-slate-800">{dim.label}</span>
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${dim.badgeColor}`}>
                                         {dim.score}%
                                     </span>
                                 </div>
 
+                                <p className="text-[11px] text-slate-400 mb-3">{dim.desc}</p>
+
+                                {/* Visual Progress Bar */}
                                 <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden mb-2">
                                     <div
                                         className={`h-full ${dim.barColor} transition-all duration-500`}
@@ -534,10 +543,10 @@ export default function StudentPerformanceReport({ onNavigate, onNavigateToDrill
                                     />
                                 </div>
 
-                                <div className="flex items-center justify-between text-[11px] text-slate-500">
+                                <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium pt-1">
                                     <span>{dim.status}</span>
-                                    <span className="text-blue-600 font-semibold flex items-center gap-0.5">
-                                        {isSelected ? 'Active' : 'Filter'} <ChevronRight className="w-3 h-3" />
+                                    <span className="text-blue-600 font-bold flex items-center gap-0.5">
+                                        {isSelected ? 'Selected' : 'Filter'} <ChevronRight className="w-3 h-3" />
                                     </span>
                                 </div>
                             </div>
@@ -546,76 +555,81 @@ export default function StudentPerformanceReport({ onNavigate, onNavigateToDrill
                 </div>
             </div>
 
-            {/* 6. Analytics Charts Grid */}
+            {/* 6. Simple Visual Graphs */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <div className="lg:col-span-5 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                {/* Radar: Balance */}
+                <div className="lg:col-span-5 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
                     <div>
-                        <h2 className="text-base font-bold text-slate-900">Cognitive Balance (Radar)</h2>
-                        <p className="text-xs text-slate-500 mb-4">
-                            Proficiency across the 4 ERD WeaknessRecord types.
+                        <h3 className="text-base font-bold text-slate-900">Skill Balance</h3>
+                        <p className="text-xs text-slate-500 mb-3">
+                            A wider shape means a more well-rounded student.
                         </p>
                     </div>
-                    <div className="h-64 w-full flex items-center justify-center">
+                    <div className="h-60 w-full flex items-center justify-center">
                         <Radar data={radarData} options={radarOptions} />
                     </div>
-                    <div className="mt-4 p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600">
-                        <strong>System Diagnostic:</strong> Language and Memorisation are above 85%. Focus on calculation drills.
+                    <div className="mt-3 p-3 bg-slate-50 rounded-xl text-xs text-slate-600 border border-slate-100">
+                        💡 <strong>Quick Take:</strong> Language and Memorisation are strong (85%+). Spend more time practicing calculation problems.
                     </div>
                 </div>
 
-                <div className="lg:col-span-7 bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                {/* Line: Progress over time */}
+                <div className="lg:col-span-7 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between">
                     <div>
-                        <h2 className="text-base font-bold text-slate-900">Session Progression History</h2>
-                        <p className="text-xs text-slate-500 mb-4">Accuracy calculated from PracticeAttempt records across Sessions.</p>
+                        <h3 className="text-base font-bold text-slate-900">Score History</h3>
+                        <p className="text-xs text-slate-500 mb-3">
+                            Your practice quiz results compared against the 60% passing mark.
+                        </p>
                     </div>
-                    <div className="h-64 w-full">
+                    <div className="h-60 w-full">
                         <Line data={lineChartData} options={lineChartOptions} />
                     </div>
-                    <div className="mt-4 flex items-center justify-between text-xs text-slate-500 border-t pt-3">
-                        <span>Lowest Accuracy: <strong>40% (Recurrence Relations)</strong></span>
-                        <span>Highest Accuracy: <strong>90% (SRS Ambiguity)</strong></span>
+                    <div className="mt-3 flex items-center justify-between text-xs text-slate-500 border-t border-slate-100 pt-2.5">
+                        <span>Lowest Score: <strong>40%</strong></span>
+                        <span>Highest Score: <strong>90%</strong></span>
                     </div>
                 </div>
             </div>
 
-            {/* 7. Practice Sessions Log */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            {/* 7. History Log Table */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                         <div className="flex items-center gap-2">
-                            <h2 className="text-base font-bold text-slate-900">Session Practice Log</h2>
+                            <h2 className="text-base font-bold text-slate-900">Practice History Log</h2>
                             {selectedType !== 'All' && (
-                                <span className="text-[11px] font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-                                    Type: {selectedType}
+                                <span className="text-[11px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full capitalize">
+                                    Filtered: {selectedType}
                                 </span>
                             )}
                         </div>
                         <p className="text-xs text-slate-500">
-                            Session rows with linked PracticeAttempt accuracy and WeaknessRecord validation status.
+                            Click any row to see what questions you got right and AI recommendations.
                         </p>
                     </div>
 
+                    {/* Search & Subject Dropdown Filter */}
                     <div className="flex flex-col sm:flex-row gap-2">
                         <div className="relative">
-                            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                             <input
                                 type="text"
-                                placeholder="Search session or topic..."
+                                placeholder="Search topic or skill..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-9 pr-3 py-1.5 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-48"
+                                className="pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-44"
                             />
                         </div>
 
                         <div className="flex items-center gap-1.5">
-                            <Filter className="w-3.5 h-3.5 text-slate-500" />
+                            <Filter className="w-3.5 h-3.5 text-slate-400" />
                             <select
                                 value={selectedSubject}
                                 onChange={(e) => setSelectedSubject(e.target.value)}
-                                className="text-xs py-1.5 px-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                className="text-xs py-1.5 px-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                             >
                                 <option value="All">All Subjects</option>
-                                <option value="Data Communication">Data Communication & Networking</option>
+                                <option value="Data Comm">Data Comm & Networking</option>
                                 <option value="Database">Database Systems</option>
                                 <option value="Workshop 2">Workshop 2</option>
                                 <option value="Data Structures">Data Structures</option>
@@ -624,15 +638,15 @@ export default function StudentPerformanceReport({ onNavigate, onNavigateToDrill
                     </div>
                 </div>
 
+                {/* Table Rows */}
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse text-xs">
                         <thead>
-                            <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase">
-                                <th className="py-3 px-4">Session Info</th>
+                            <tr className="bg-slate-50/70 border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider">
+                                <th className="py-3 px-4">Date</th>
                                 <th className="py-3 px-4">Subject & Topic</th>
-                                <th className="py-3 px-4">Weakness Type</th>
-                                <th className="py-3 px-4 text-center">Validated?</th>
-                                <th className="py-3 px-4 text-center">Accuracy</th>
+                                <th className="py-3 px-4">Skill Tested</th>
+                                <th className="py-3 px-4 text-center">Score</th>
                                 <th className="py-3 px-4 text-right">Action</th>
                             </tr>
                         </thead>
@@ -644,77 +658,47 @@ export default function StudentPerformanceReport({ onNavigate, onNavigateToDrill
                                         <tr
                                             key={session.sessionID}
                                             onClick={() => setSelectedRecord(session)}
-                                            className="hover:bg-blue-50/50 transition cursor-pointer group"
-                                            title="Click to view practice session breakdown"
+                                            className="hover:bg-blue-50/40 transition cursor-pointer group"
+                                            title="Click to view details"
                                         >
-                                            <td className="py-3 px-4 whitespace-nowrap">
-                                                <div className="font-mono font-semibold text-slate-800">{session.sessionID}</div>
-                                                <div className="text-[11px] text-slate-400 capitalize">{session.purpose} • {session.sessionAt}</div>
+                                            <td className="py-3 px-4 whitespace-nowrap text-slate-500 font-medium">
+                                                {session.sessionAt}
                                             </td>
                                             <td className="py-3 px-4">
-                                                <div className="font-semibold text-slate-900 group-hover:text-blue-600 transition">
+                                                <div className="font-bold text-slate-800 group-hover:text-blue-600 transition">
                                                     {session.topic}
                                                 </div>
-                                                <div className="text-[11px] text-slate-500">{session.subjectName}</div>
+                                                <div className="text-[11px] text-slate-400">{session.subjectName}</div>
                                             </td>
                                             <td className="py-3 px-4 whitespace-nowrap">
-                                                <span
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setSelectedType(session.weaknessType);
-                                                    }}
-                                                    title={`Click to filter by ${session.weaknessType}`}
-                                                    className="inline-block px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 hover:bg-blue-100 hover:text-blue-700 text-slate-700 border border-slate-200 transition capitalize"
-                                                >
+                                                <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 capitalize">
                                                     {session.weaknessType}
                                                 </span>
                                             </td>
                                             <td className="py-3 px-4 text-center whitespace-nowrap">
-                                                <span className={`inline-flex items-center gap-1 font-semibold text-[11px] ${session.validated ? 'text-rose-600' : 'text-slate-400'
-                                                    }`}>
-                                                    {session.validated ? (
-                                                        <>
-                                                            <CheckCircle2 className="w-3.5 h-3.5 text-rose-500" />
-                                                            Confirmed
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <XCircle className="w-3.5 h-3.5 text-slate-400" />
-                                                            Unconfirmed
-                                                        </>
-                                                    )}
-                                                </span>
-                                            </td>
-                                            <td className="py-3 px-4 text-center whitespace-nowrap">
-                                                <span className={`font-bold ${accuracyPercent < 60 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                                <span className={`font-black ${accuracyPercent < 60 ? 'text-rose-600' : 'text-emerald-600'}`}>
                                                     {accuracyPercent}%
                                                 </span>
                                                 <div className="text-[10px] text-slate-400 font-mono">
-                                                    {session.correctAttempts}/{session.totalQuestions} Correct
+                                                    {session.correctAttempts}/{session.totalQuestions} correct
                                                 </div>
                                             </td>
                                             <td className="py-3 px-4 text-right whitespace-nowrap">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setSelectedRecord(session);
-                                                    }}
-                                                    className="inline-flex items-center gap-1 text-blue-600 group-hover:text-blue-800 font-semibold"
-                                                >
+                                                <span className="text-blue-600 font-bold text-xs inline-flex items-center gap-1 group-hover:underline">
                                                     <Eye className="w-3.5 h-3.5" />
-                                                    Details
-                                                </button>
+                                                    View Details
+                                                </span>
                                             </td>
                                         </tr>
                                     );
                                 })
                             ) : (
                                 <tr>
-                                    <td colSpan="6" className="text-center py-8 text-slate-400">
-                                        No matching sessions found for "{selectedType}".{' '}
+                                    <td colSpan="5" className="text-center py-8 text-slate-400">
+                                        No sessions match "{selectedType}".{' '}
                                         <button
                                             onClick={() => setSelectedType('All')}
-                                            className="text-blue-600 underline font-semibold ml-1"
+                                            className="text-blue-600 underline font-bold ml-1"
                                         >
                                             Clear filter
                                         </button>
