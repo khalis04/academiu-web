@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import FrontPage from './components/FrontPage';
+import DashboardOverview from './components/DashboardOverview';
 import StudentPerformanceReport from './components/StudentPerformanceReport';
 import AchievementReport from './components/AchievementReport';
 import SettingsTab from './components/SettingsTab';
@@ -24,13 +25,13 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
 
-  const [activeTab, setActiveTab] = useState('performance');
+  // Set initial landing view to 'dashboard'
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  // System navigation items
   const menuItems = [
-    { id: 'registration', label: 'Registration', icon: UserPlus },
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'registration', label: 'Registration', icon: UserPlus },
     { id: 'records', label: 'Academic Records (CRUDS)', icon: Database },
     { id: 'diagnostic', label: 'AI Weakness Diagnostic', icon: Brain },
     { id: 'generator', label: 'AI Question Generator', icon: FileQuestion },
@@ -39,28 +40,25 @@ export default function App() {
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
+  // Transition from Front Page directly into Dashboard
   const handleEnterApp = (userData) => {
     setCurrentUser(userData);
     setIsAuthenticated(true);
-    setActiveTab('performance');
+    setActiveTab('dashboard');
   };
 
   const handleLogout = () => {
     setIsAuthenticated(false);
     setCurrentUser(null);
+    setActiveTab('dashboard');
   };
 
-  // Animated Front Page transition
   if (!isAuthenticated) {
-    return (
-      <div className="animate-fade-in">
-        <FrontPage onEnterApp={handleEnterApp} />
-      </div>
-    );
+    return <FrontPage onEnterApp={handleEnterApp} />;
   }
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden text-slate-800 animate-fade-in">
+    <div className="flex h-screen bg-slate-50 overflow-hidden text-slate-800">
       {/* Collapsible Left Sidebar Shell */}
       <aside
         className={`${isCollapsed ? 'w-20' : 'w-64'
@@ -85,7 +83,6 @@ export default function App() {
               </div>
             )}
 
-            {/* Minimize / Maximize Toggle */}
             <button
               onClick={() => setIsCollapsed(!isCollapsed)}
               className={`p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition ${isCollapsed ? 'mx-auto mt-2' : ''
@@ -96,7 +93,7 @@ export default function App() {
             </button>
           </div>
 
-          {/* Navigation Items with active click feedback */}
+          {/* Navigation Items */}
           <nav className="p-3 space-y-1">
             {menuItems.map((item) => {
               const Icon = item.icon;
@@ -107,8 +104,8 @@ export default function App() {
                   onClick={() => setActiveTab(item.id)}
                   title={isCollapsed ? item.label : undefined}
                   className={`w-full flex items-center ${isCollapsed ? 'justify-center px-0' : 'gap-3 px-3.5'
-                    } py-2.5 rounded-lg text-xs font-semibold transition-all duration-200 active:scale-95 ${isActive
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20 translate-x-1'
+                    } py-2.5 rounded-lg text-xs font-semibold transition ${isActive
+                      ? 'bg-blue-600 text-white shadow-sm'
                       : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                     }`}
                 >
@@ -164,93 +161,78 @@ export default function App() {
         </div>
       </aside>
 
-      {/* Main Content Area: key={activeTab} triggers animate-slide-in on every module change */}
+      {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto">
-        <div key={activeTab} className="animate-slide-in h-full">
-          {/* Module 4: Student Performance Report */}
-          {activeTab === 'performance' && (
-            <StudentPerformanceReport
-              onNavigate={(tab) => setActiveTab(tab)}
-              onNavigateToDrill={(weaknessType) => {
-                alert(`Navigating to AI Question Generator for: ${weaknessType}`);
-                setActiveTab('generator');
-              }}
-            />
-          )}
+        {/* Module 1: Dashboard Overview (Default after login/skip) */}
+        {activeTab === 'dashboard' && (
+          <DashboardOverview
+            onNavigate={(tab) => setActiveTab(tab)}
+            onNavigateToDrill={(dimension) => {
+              alert(`Navigating to AI Question Generator for: ${dimension}`);
+              setActiveTab('generator');
+            }}
+          />
+        )}
 
-          {/* Module 5: Student Achievement Report */}
-          {activeTab === 'achievement' && (
-            <AchievementReport
-              onNavigate={(tab) => setActiveTab(tab)}
-              onNavigateToDrill={(dimension) => {
-                alert(`Navigating to AI Question Generator for dimension: ${dimension}`);
-                setActiveTab('generator');
-              }}
-            />
-          )}
+        {/* Module 4: Student Performance Report */}
+        {activeTab === 'performance' && (
+          <StudentPerformanceReport
+            onNavigate={(tab) => setActiveTab(tab)}
+            onNavigateToDrill={(weaknessType) => {
+              alert(`Navigating to AI Question Generator for: ${weaknessType}`);
+              setActiveTab('generator');
+            }}
+          />
+        )}
 
-          {/* AI Weakness Diagnostic Module */}
-          {activeTab === 'diagnostic' && (
-            <AiDiagnostic onNavigate={(tab) => setActiveTab(tab)} />
-          )}
+        {/* Module 5: Student Achievement Report */}
+        {activeTab === 'achievement' && (
+          <AchievementReport
+            onNavigate={(tab) => setActiveTab(tab)}
+            onNavigateToDrill={(dimension) => {
+              alert(`Navigating to AI Question Generator for: ${dimension}`);
+              setActiveTab('generator');
+            }}
+          />
+        )}
 
-          {/* Registration Module */}
-          {activeTab === 'registration' && (
-            <Registration onNavigate={(tab) => setActiveTab(tab)} />
-          )}
+        {/* AI Weakness Diagnostic Module */}
+        {activeTab === 'diagnostic' && (
+          <AiDiagnostic onNavigate={(tab) => setActiveTab(tab)} />
+        )}
 
-          {/* AI Question Generator Module */}
-          {activeTab === 'generator' && (
-            <QuestionGenerator onNavigate={(tab) => setActiveTab(tab)} />
-          )}
+        {/* Registration Module */}
+        {activeTab === 'registration' && (
+          <Registration onNavigate={(tab) => setActiveTab(tab)} />
+        )}
 
-          {/* Settings Module */}
-          {activeTab === 'settings' && (
-            <SettingsTab onNavigate={(tab) => setActiveTab(tab)} />
-          )}
+        {/* AI Question Generator Module */}
+        {activeTab === 'generator' && (
+          <QuestionGenerator onNavigate={(tab) => setActiveTab(tab)} />
+        )}
 
-          {/* Dashboard Overview */}
-          {activeTab === 'dashboard' && (
-            <div className="p-8">
-              <h1 className="text-2xl font-bold text-slate-900">Dashboard Overview</h1>
-              <p className="text-sm text-slate-500 mt-1">
-                Welcome back, {currentUser?.name || 'Muhammad Nabil'}. Click below to inspect your diagnostic results and learning progress.
-              </p>
-              <div className="flex gap-3 mt-4">
-                <button
-                  onClick={() => setActiveTab('performance')}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-semibold hover:bg-blue-700 transition"
-                >
-                  Open Student Performance Report ➔
-                </button>
-                <button
-                  onClick={() => setActiveTab('achievement')}
-                  className="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg text-xs font-semibold hover:bg-slate-50 transition"
-                >
-                  View Academic Achievement 🏆
-                </button>
-              </div>
-            </div>
-          )}
+        {/* Settings Module */}
+        {activeTab === 'settings' && (
+          <SettingsTab onNavigate={(tab) => setActiveTab(tab)} />
+        )}
 
-          {/* Unmerged Teammate Modules Fallback */}
-          {activeTab === 'records' && (
-            <div className="p-8 text-center mt-20">
-              <h2 className="text-xl font-bold text-slate-700 capitalize">
-                Academic Records (CRUDS)
-              </h2>
-              <p className="text-sm text-slate-400 mt-2">
-                This module slot is ready for your teammate to plug in their component.
-              </p>
-              <button
-                onClick={() => setActiveTab('performance')}
-                className="mt-6 text-xs text-blue-600 font-semibold underline hover:text-blue-800"
-              >
-                Back to My Performance Report
-              </button>
-            </div>
-          )}
-        </div>
+        {/* Teammates' Unmerged Modules Fallback (Records) */}
+        {activeTab === 'records' && (
+          <div className="p-8 text-center mt-20">
+            <h2 className="text-xl font-bold text-slate-700 capitalize">
+              Academic Records (CRUDS)
+            </h2>
+            <p className="text-sm text-slate-400 mt-2">
+              This module slot is ready for your teammate to plug in their component.
+            </p>
+            <button
+              onClick={() => setActiveTab('dashboard')}
+              className="mt-6 text-xs text-blue-600 font-semibold underline hover:text-blue-800"
+            >
+              Back to Dashboard Overview
+            </button>
+          </div>
+        )}
       </main>
     </div>
   );

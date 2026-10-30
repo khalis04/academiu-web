@@ -49,12 +49,12 @@ export default function FrontPage({ onEnterApp }) {
                         </div>
                     </div>
 
-                    {/* Direct Skip Button */}
+                    {/* Top Skip Button */}
                     <button
                         onClick={() => onEnterApp({ name: 'Muhammad Nabil', matric: 'B032410622' })}
                         className="flex items-center gap-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-4 py-2 rounded-lg border border-slate-700 transition"
                     >
-                        <span>Skip to Prototype Demo</span>
+                        <span>Skip</span>
                         <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                 </div>
@@ -208,7 +208,7 @@ export default function FrontPage({ onEnterApp }) {
                             </button>
                         </form>
 
-                        {/* Direct Skip Option */}
+                        {/* Bottom Skip Option */}
                         <div className="mt-6 pt-5 border-t border-slate-700/60 text-center">
                             <p className="text-[11px] text-slate-400">
                                 Want to test features right away without typing credentials?
@@ -218,7 +218,7 @@ export default function FrontPage({ onEnterApp }) {
                                 onClick={() => onEnterApp({ name: 'Muhammad Nabil', matric: 'B032410622' })}
                                 className="mt-2 text-xs font-bold text-blue-400 hover:text-blue-300 underline underline-offset-4 transition inline-flex items-center gap-1"
                             >
-                                Skip & Proceed directly as Guest / Demo ➔
+                                Skip ➔
                             </button>
                         </div>
                     </div>
