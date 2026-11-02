@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
-import { Sparkles, Loader2, Bookmark, BookmarkCheck, Eye, EyeOff, RefreshCw } from 'lucide-react';
+import {
+    Sparkles, Loader2, Bookmark, BookmarkCheck, Eye, EyeOff, RefreshCw,
+    Upload, FileText, X, TrendingUp, TrendingDown, Minus, BookOpen, BarChart3,
+} from 'lucide-react';
 
-// Fake "AI" question bank for the prototype. A real AI/API replaces this later.
+// ---------- Fake data for the prototype (a real AI/API replaces this later) ----------
 const BANK = {
     'Database Design': [
         { id: 'db1', type: 'mcq', q: 'Which normal form removes partial dependencies?', options: ['1NF', '2NF', '3NF', 'BCNF'], answer: 1, explain: '2NF removes partial dependencies on part of a composite key.' },
@@ -23,36 +26,197 @@ const BANK = {
     ],
 };
 
+// Used to "detect" the subject of an uploaded file from its file name
+const TOPIC_KEYWORDS = {
+    'Database Design': ['database', 'sql', 'erd', 'normal', 'db', 'data'],
+    'Programming': ['program', 'react', 'javascript', 'js', 'code', 'java', 'python'],
+    'Software Engineering': ['software', 'agile', 'uml', 'requirement', 'sdlc', 'engineering'],
+};
+
+// Fake "key concepts" the AI would extract from the materials
+const CONCEPTS = {
+    'Database Design': ['Normalization', 'Primary & foreign keys', 'ERD', 'SQL joins', 'Transactions'],
+    'Programming': ['Functions', 'Loops & arrays', 'React hooks', 'Async / promises', 'OOP basics'],
+    'Software Engineering': ['SDLC models', 'Agile & Scrum', 'UML diagrams', 'Requirements', 'Testing'],
+};
+
+// Past-year papers available in the system, and marks per sub-topic in each one
+const PAPER_YEARS = [2022, 2023, 2024, 2025];
+const TRENDS = {
+    'Database Design': [
+        { name: 'Normalization', marks: [10, 12, 15, 18] },
+        { name: 'ERD & Modelling', marks: [20, 18, 16, 15] },
+        { name: 'SQL Queries', marks: [15, 15, 18, 20] },
+        { name: 'Transactions', marks: [5, 8, 6, 5] },
+        { name: 'Indexing', marks: [0, 5, 6, 10] },
+    ],
+    'Programming': [
+        { name: 'Functions & Scope', marks: [10, 10, 9, 8] },
+        { name: 'Arrays & Loops', marks: [20, 18, 15, 14] },
+        { name: 'React Hooks', marks: [0, 6, 12, 18] },
+        { name: 'Async / Promises', marks: [5, 8, 12, 14] },
+        { name: 'OOP', marks: [15, 14, 13, 12] },
+    ],
+    'Software Engineering': [
+        { name: 'Agile / Scrum', marks: [8, 12, 15, 18] },
+        { name: 'UML Diagrams', marks: [20, 18, 18, 15] },
+        { name: 'Requirements', marks: [15, 15, 14, 14] },
+        { name: 'Testing', marks: [10, 12, 14, 17] },
+        { name: 'Version Control', marks: [5, 5, 8, 10] },
+    ],
+};
+
 const shuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
+const formatSize = (b) => (b > 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
 
 export default function QuestionGenerator({ onNavigate, initialTopic }) {
-    const [topic, setTopic] = useState(initialTopic && BANK[initialTopic] ? initialTopic : 'Database Design');
+    const startTopic = initialTopic && BANK[initialTopic] ? initialTopic : 'Database Design';
+
+    const [mode, setMode] = useState('topic'); // 'topic' | 'upload' | 'trends'
+
+    // Shared settings
+    const [topic, setTopic] = useState(startTopic);
     const [difficulty, setDifficulty] = useState('Medium');
     const [type, setType] = useState('mcq');
     const [count, setCount] = useState(2);
+
+    // Results
     const [loading, setLoading] = useState(false);
     const [questions, setQuestions] = useState([]);
-    const [picked, setPicked] = useState({});     // MCQ choice per question id
-    const [revealed, setRevealed] = useState({}); // short-answer reveal per id
-    const [saved, setSaved] = useState([]);       // ids saved to question bank
+    const [lastRun, setLastRun] = useState(null); // { topic, source }
+    const [picked, setPicked] = useState({});
+    const [revealed, setRevealed] = useState({});
+    const [saved, setSaved] = useState([]);
 
-    const handleGenerate = () => {
+    // Upload tab
+    const [files, setFiles] = useState([]);
+    const [analysing, setAnalysing] = useState(false);
+    const [analysis, setAnalysis] = useState(null); // { topic, concepts }
+
+    // Trends tab
+    const [trendTopic, setTrendTopic] = useState(startTopic);
+    const [years, setYears] = useState(PAPER_YEARS);
+
+    // ---------- Actions ----------
+    const generate = (t, source) => {
         setLoading(true);
         setPicked({});
         setRevealed({});
-        // Fake AI delay so it feels real
+        setLastRun({ topic: t, source });
         setTimeout(() => {
-            const pool = BANK[topic].filter((x) => x.type === type);
+            const pool = BANK[t].filter((x) => x.type === type);
             setQuestions(shuffle(pool).slice(0, count).map((x) => ({ ...x, difficulty })));
             setLoading(false);
         }, 1500);
     };
 
+    const switchMode = (m) => {
+        setMode(m);
+        setQuestions([]);
+        setLastRun(null);
+    };
+
     const toggleSave = (id) =>
         setSaved((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
+    const handleFiles = (e) => {
+        const picked = Array.from(e.target.files || []).map((f) => ({ name: f.name, size: f.size }));
+        setFiles((prev) => [...prev, ...picked]);
+        setAnalysis(null);
+        e.target.value = '';
+    };
+
+    const removeFile = (i) => {
+        setFiles((prev) => prev.filter((_, idx) => idx !== i));
+        setAnalysis(null);
+    };
+
+    const analyse = () => {
+        setAnalysing(true);
+        setTimeout(() => {
+            const names = files.map((f) => f.name.toLowerCase()).join(' ');
+            let detected = topic;
+            for (const [t, kws] of Object.entries(TOPIC_KEYWORDS)) {
+                if (kws.some((k) => names.includes(k))) { detected = t; break; }
+            }
+            setAnalysis({ topic: detected, concepts: CONCEPTS[detected] });
+            setAnalysing(false);
+        }, 1800);
+    };
+
+    const toggleYear = (y) =>
+        setYears((prev) => {
+            const next = prev.includes(y) ? prev.filter((x) => x !== y) : [...prev, y];
+            return next.length ? next.sort() : prev; // keep at least one year
+        });
+
+    // Trend analysis for the selected papers
+    const maxLast = years.length - 1;
+    const rows = TRENDS[trendTopic]
+        .map((r) => {
+            const vals = years.map((y) => r.marks[PAPER_YEARS.indexOf(y)]);
+            const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+            const change = vals[maxLast] - vals[0];
+            const dir = change >= 3 ? 'up' : change <= -3 ? 'down' : 'steady';
+            return { ...r, vals, avg, change, dir, score: avg + change };
+        })
+        .sort((a, b) => b.score - a.score);
+    const maxMark = Math.max(...rows.flatMap((r) => r.vals), 1);
+    const likely = rows.slice(0, 3);
+
+    // ---------- Styles ----------
     const selectClass =
         'w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500';
+
+    const TrendBadge = ({ dir }) => {
+        if (dir === 'up') return <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 rounded px-2 py-0.5"><TrendingUp className="w-3 h-3" /> Rising</span>;
+        if (dir === 'down') return <span className="flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-100 rounded px-2 py-0.5"><TrendingDown className="w-3 h-3" /> Falling</span>;
+        return <span className="flex items-center gap-1 text-[10px] font-bold text-slate-600 bg-slate-100 rounded px-2 py-0.5"><Minus className="w-3 h-3" /> Steady</span>;
+    };
+
+    // Question settings (type / count / difficulty), shared by every tab
+    const settings = (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <label className="block">
+                <span className="text-xs font-semibold text-slate-500">Question type</span>
+                <select className={selectClass} value={type} onChange={(e) => setType(e.target.value)}>
+                    <option value="mcq">Multiple choice</option>
+                    <option value="short">Short answer</option>
+                </select>
+            </label>
+            <label className="block">
+                <span className="text-xs font-semibold text-slate-500">Number of questions</span>
+                <select className={selectClass} value={count} onChange={(e) => setCount(Number(e.target.value))}>
+                    {[1, 2].map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
+            </label>
+            <div>
+                <span className="text-xs font-semibold text-slate-500 block mb-1">Difficulty</span>
+                <div className="flex gap-1">
+                    {['Easy', 'Medium', 'Hard'].map((d) => (
+                        <button key={d} onClick={() => setDifficulty(d)}
+                            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition ${difficulty === d ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                            {d}
+                        </button>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+
+    const generateBtn = (label, onClick, disabled) => (
+        <button onClick={onClick} disabled={disabled || loading}
+            className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-semibold rounded-lg px-5 py-2.5 text-sm">
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+            {loading ? 'Generating...' : label}
+        </button>
+    );
+
+    const tabs = [
+        { id: 'topic', label: 'Selected Topic', icon: BookOpen },
+        { id: 'upload', label: 'Uploaded Materials', icon: Upload },
+        { id: 'trends', label: 'Past-Year Trends', icon: BarChart3 },
+    ];
 
     return (
         <div className="p-4 md:p-8 bg-slate-50 min-h-screen text-slate-800">
@@ -60,65 +224,197 @@ export default function QuestionGenerator({ onNavigate, initialTopic }) {
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">AI Question Generator</h1>
                     <p className="text-sm text-slate-500 mt-1">
-                        Generate practice questions for any topic. (Prototype: sample data only)
+                        Generate questions from a topic, your own learning materials, or past-year exam trends. (Prototype: sample data only)
                     </p>
                 </div>
-                <div className="text-xs font-semibold bg-blue-100 text-blue-700 rounded-full px-3 py-1">
+                <div className="text-xs font-semibold bg-blue-100 text-blue-700 rounded-full px-3 py-1 shrink-0">
                     {saved.length} saved
                 </div>
             </div>
 
-            {/* Controls */}
-            <div className="bg-white rounded-xl shadow p-5 mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-                <label className="block">
-                    <span className="text-xs font-semibold text-slate-500">Topic</span>
-                    <select className={selectClass} value={topic} onChange={(e) => setTopic(e.target.value)}>
-                        {Object.keys(BANK).map((t) => <option key={t}>{t}</option>)}
-                    </select>
-                </label>
-
-                <label className="block">
-                    <span className="text-xs font-semibold text-slate-500">Question type</span>
-                    <select className={selectClass} value={type} onChange={(e) => setType(e.target.value)}>
-                        <option value="mcq">Multiple choice</option>
-                        <option value="short">Short answer</option>
-                    </select>
-                </label>
-
-                <label className="block">
-                    <span className="text-xs font-semibold text-slate-500">Number of questions</span>
-                    <select className={selectClass} value={count} onChange={(e) => setCount(Number(e.target.value))}>
-                        {[1, 2].map((n) => <option key={n} value={n}>{n}</option>)}
-                    </select>
-                </label>
-
-                <div>
-                    <span className="text-xs font-semibold text-slate-500 block mb-1">Difficulty</span>
-                    <div className="flex gap-1">
-                        {['Easy', 'Medium', 'Hard'].map((d) => (
-                            <button key={d} onClick={() => setDifficulty(d)}
-                                className={`flex-1 py-2 rounded-lg text-xs font-semibold transition ${difficulty === d ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
-                                {d}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="md:col-span-4">
-                    <button onClick={handleGenerate} disabled={loading}
-                        className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold rounded-lg px-5 py-2.5 text-sm">
-                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                        {loading ? 'Generating...' : 'Generate Questions'}
-                    </button>
-                </div>
+            {/* Tabs */}
+            <div className="flex gap-1 bg-white rounded-xl shadow p-1 mb-6 w-full md:w-fit">
+                {tabs.map((t) => {
+                    const Icon = t.icon;
+                    return (
+                        <button key={t.id} onClick={() => switchMode(t.id)}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition ${mode === t.id ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
+                            <Icon className="w-4 h-4" /> {t.label}
+                        </button>
+                    );
+                })}
             </div>
 
-            {/* Results */}
-            {questions.length > 0 && !loading && (
+            {/* ---------- TAB 1: Selected topic ---------- */}
+            {mode === 'topic' && (
+                <div className="bg-white rounded-xl shadow p-5 mb-6 space-y-4">
+                    <label className="block md:w-1/3">
+                        <span className="text-xs font-semibold text-slate-500">Topic</span>
+                        <select className={selectClass} value={topic} onChange={(e) => setTopic(e.target.value)}>
+                            {Object.keys(BANK).map((t) => <option key={t}>{t}</option>)}
+                        </select>
+                    </label>
+                    {settings}
+                    {generateBtn('Generate Questions', () => generate(topic, `Topic: ${topic}`))}
+                </div>
+            )}
+
+            {/* ---------- TAB 2: Uploaded materials ---------- */}
+            {mode === 'upload' && (
+                <div className="bg-white rounded-xl shadow p-5 mb-6 space-y-4">
+                    <label className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 hover:border-blue-400 hover:bg-blue-50 rounded-xl py-8 cursor-pointer transition">
+                        <Upload className="w-7 h-7 text-blue-600 mb-2" />
+                        <span className="text-sm font-semibold text-slate-700">Click to upload learning materials</span>
+                        <span className="text-xs text-slate-400 mt-1">Lecture notes, slides, or tutorials (PDF, DOCX, PPTX, TXT)</span>
+                        <input type="file" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.txt" onChange={handleFiles} className="hidden" />
+                    </label>
+
+                    {files.length > 0 && (
+                        <ul className="space-y-2">
+                            {files.map((f, i) => (
+                                <li key={i} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2">
+                                    <span className="flex items-center gap-2 text-sm text-slate-700">
+                                        <FileText className="w-4 h-4 text-blue-600" /> {f.name}
+                                        <span className="text-xs text-slate-400">{formatSize(f.size)}</span>
+                                    </span>
+                                    <button onClick={() => removeFile(i)} title="Remove" className="text-slate-400 hover:text-red-500">
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+
+                    {files.length > 0 && !analysis && (
+                        <button onClick={analyse} disabled={analysing}
+                            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-900 disabled:opacity-60 text-white font-semibold rounded-lg px-5 py-2.5 text-sm">
+                            {analysing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                            {analysing ? 'Reading your materials...' : 'Analyse Materials'}
+                        </button>
+                    )}
+
+                    {analysis && (
+                        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                            <p className="text-xs font-semibold text-blue-700 mb-2">
+                                AI detected the subject: <span className="font-bold">{analysis.topic}</span>
+                            </p>
+                            <div className="flex flex-wrap gap-2">
+                                {analysis.concepts.map((c) => (
+                                    <span key={c} className="text-[11px] font-semibold bg-white text-blue-700 border border-blue-200 rounded-full px-3 py-1">{c}</span>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {analysis && (
+                        <>
+                            {settings}
+                            {generateBtn('Generate from Materials', () =>
+                                generate(analysis.topic, `Uploaded: ${files.map((f) => f.name).join(', ')}`))}
+                        </>
+                    )}
+
+                    {files.length === 0 && (
+                        <p className="text-xs text-slate-400">Upload at least one file to continue. (Prototype: files are not actually read or sent anywhere.)</p>
+                    )}
+                </div>
+            )}
+
+            {/* ---------- TAB 3: Past-year trends ---------- */}
+            {mode === 'trends' && (
+                <div className="space-y-6 mb-6">
+                    <div className="bg-white rounded-xl shadow p-5 space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <label className="block">
+                                <span className="text-xs font-semibold text-slate-500">Subject</span>
+                                <select className={selectClass} value={trendTopic} onChange={(e) => setTrendTopic(e.target.value)}>
+                                    {Object.keys(TRENDS).map((t) => <option key={t}>{t}</option>)}
+                                </select>
+                            </label>
+                            <div>
+                                <span className="text-xs font-semibold text-slate-500 block mb-1">Past-year papers to analyse</span>
+                                <div className="flex flex-wrap gap-2">
+                                    {PAPER_YEARS.map((y) => (
+                                        <button key={y} onClick={() => toggleYear(y)}
+                                            className={`flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold transition ${years.includes(y) ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>
+                                            <FileText className="w-3.5 h-3.5" /> {y} Final
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Likely focus areas */}
+                        <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
+                            <p className="text-xs font-bold text-amber-800 mb-2">
+                                🔮 Likely focus areas for the next paper (based on {years.length} paper{years.length > 1 ? 's' : ''})
+                            </p>
+                            <ol className="space-y-1">
+                                {likely.map((r, i) => (
+                                    <li key={r.name} className="text-sm text-slate-700">
+                                        <span className="font-semibold">{i + 1}. {r.name}</span>
+                                        <span className="text-xs text-slate-500"> avg {r.avg.toFixed(1)} marks, {r.dir === 'up' ? 'rising' : r.dir === 'down' ? 'falling' : 'steady'}</span>
+                                    </li>
+                                ))}
+                            </ol>
+                        </div>
+                    </div>
+
+                    {/* Trend chart */}
+                    <div className="bg-white rounded-xl shadow p-5">
+                        <h2 className="font-bold text-slate-900 mb-1">Marks per sub-topic</h2>
+                        <p className="text-xs text-slate-400 mb-4">Each bar is one paper, in year order ({years.join(', ')}).</p>
+                        <div className="space-y-4">
+                            {rows.map((r) => (
+                                <div key={r.name} className="flex items-center gap-4">
+                                    <div className="w-40 shrink-0">
+                                        <p className="text-sm font-semibold text-slate-800">{r.name}</p>
+                                        <p className="text-[11px] text-slate-400">avg {r.avg.toFixed(1)} marks</p>
+                                    </div>
+                                    <div className="flex items-end gap-2 h-12 flex-1">
+                                        {r.vals.map((v, i) => (
+                                            <div key={i} className="flex flex-col items-center justify-end h-full w-10">
+                                                <span className="text-[10px] text-slate-500 leading-none mb-0.5">{v}</span>
+                                                <div className="w-full bg-blue-500 rounded-t" style={{ height: `${(v / maxMark) * 100 * 0.7}%`, minHeight: v > 0 ? 2 : 0 }} />
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <TrendBadge dir={r.dir} />
+                                    <button onClick={() => generate(trendTopic, `Trend focus: ${r.name} (${trendTopic})`)}
+                                        disabled={loading}
+                                        className="text-xs font-semibold text-blue-600 hover:text-blue-800 whitespace-nowrap disabled:opacity-50">
+                                        Practise ➔
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-xl shadow p-5 space-y-4">
+                        <h2 className="font-bold text-slate-900">Generate questions from the trends</h2>
+                        {settings}
+                        {generateBtn('Generate for Likely Topics', () =>
+                            generate(trendTopic, `Trend focus: ${likely.map((l) => l.name).join(', ')}`))}
+                    </div>
+                </div>
+            )}
+
+            {/* ---------- Results (shared by all tabs) ---------- */}
+            {loading && (
+                <div className="flex items-center gap-2 text-sm text-slate-500 mb-6">
+                    <Loader2 className="w-4 h-4 animate-spin" /> AI is preparing your questions...
+                </div>
+            )}
+
+            {questions.length > 0 && !loading && lastRun && (
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                        <h2 className="font-bold text-slate-900">Generated questions</h2>
-                        <button onClick={handleGenerate} className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800">
+                        <div>
+                            <h2 className="font-bold text-slate-900">Generated questions</h2>
+                            <p className="text-xs text-slate-400 mt-0.5">Source: {lastRun.source}</p>
+                        </div>
+                        <button onClick={() => generate(lastRun.topic, lastRun.source)}
+                            className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800">
                             <RefreshCw className="w-3.5 h-3.5" /> Regenerate
                         </button>
                     </div>
@@ -128,7 +424,7 @@ export default function QuestionGenerator({ onNavigate, initialTopic }) {
                             <div className="flex items-start justify-between gap-3">
                                 <div>
                                     <div className="flex gap-2 mb-2">
-                                        <span className="text-[10px] font-bold uppercase bg-slate-100 text-slate-600 rounded px-2 py-0.5">{topic}</span>
+                                        <span className="text-[10px] font-bold uppercase bg-slate-100 text-slate-600 rounded px-2 py-0.5">{lastRun.topic}</span>
                                         <span className="text-[10px] font-bold uppercase bg-amber-100 text-amber-700 rounded px-2 py-0.5">{item.difficulty}</span>
                                     </div>
                                     <p className="font-semibold text-slate-900">{i + 1}. {item.q}</p>
@@ -177,7 +473,6 @@ export default function QuestionGenerator({ onNavigate, initialTopic }) {
                 </div>
             )}
 
-            {/* Link to a teammate's module */}
             <button onClick={() => onNavigate && onNavigate('diagnostic')}
                 className="mt-8 text-xs text-blue-600 font-semibold underline hover:text-blue-800">
                 ← Back to AI Weakness Diagnostic
