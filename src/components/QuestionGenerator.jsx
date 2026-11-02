@@ -220,9 +220,21 @@ export default function QuestionGenerator({ onNavigate, initialTopic }) {
 
     return (
         <div className="p-4 md:p-8 bg-slate-50 min-h-screen text-slate-800">
-            <div className="flex items-start justify-between mb-6">
+                        <div className="flex items-start justify-between mb-6">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900">AI Question Generator</h1>
+                    <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs mb-1.5 text-slate-400">
+                        <button
+                            type="button"
+                            onClick={() => onNavigate ? onNavigate('dashboard') : null}
+                            className="hover:text-blue-600 transition"
+                        >
+                            Home
+                        </button>
+                        <span>/</span>
+                        <span className="font-semibold text-blue-600">AI Question Generator</span>
+                    </nav>
+
+                    <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">AI Question Generator</h1>
                     <p className="text-sm text-slate-500 mt-1">
                         Generate questions from a topic, your own learning materials, or past-year exam trends. (Prototype: sample data only)
                     </p>
