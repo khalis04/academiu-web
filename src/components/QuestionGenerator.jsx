@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-    Sparkles, Loader2, Bookmark, BookmarkCheck, Eye, EyeOff, RefreshCw,
+    Sparkles, Loader2, Bookmark, BookmarkCheck, RefreshCw,
     Upload, FileText, X, TrendingUp, TrendingDown, Minus, BookOpen, BarChart3,
 } from 'lucide-react';
 
@@ -85,8 +85,10 @@ export default function QuestionGenerator({ onNavigate, initialTopic }) {
     const [questions, setQuestions] = useState([]);
     const [lastRun, setLastRun] = useState(null); // { topic, source }
     const [picked, setPicked] = useState({});
-    const [revealed, setRevealed] = useState({});
     const [saved, setSaved] = useState([]);
+    const [submitted, setSubmitted] = useState(false);
+    const [selfMarks, setSelfMarks] = useState({}); // short answers: true = got it right
+    const [typed, setTyped] = useState({});         // short answer text
 
     // Upload tab
     const [files, setFiles] = useState([]);
@@ -101,7 +103,9 @@ export default function QuestionGenerator({ onNavigate, initialTopic }) {
     const generate = (t, source) => {
         setLoading(true);
         setPicked({});
-        setRevealed({});
+        setSubmitted(false);
+        setSelfMarks({});
+        setTyped({});
         setLastRun({ topic: t, source });
         setTimeout(() => {
             const pool = BANK[t].filter((x) => x.type === type);
@@ -114,14 +118,15 @@ export default function QuestionGenerator({ onNavigate, initialTopic }) {
         setMode(m);
         setQuestions([]);
         setLastRun(null);
+        setSubmitted(false);
     };
 
     const toggleSave = (id) =>
         setSaved((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
 
     const handleFiles = (e) => {
-        const picked = Array.from(e.target.files || []).map((f) => ({ name: f.name, size: f.size }));
-        setFiles((prev) => [...prev, ...picked]);
+        const chosen = Array.from(e.target.files || []).map((f) => ({ name: f.name, size: f.size }));
+        setFiles((prev) => [...prev, ...chosen]);
         setAnalysis(null);
         e.target.value = '';
     };
@@ -150,7 +155,7 @@ export default function QuestionGenerator({ onNavigate, initialTopic }) {
             return next.length ? next.sort() : prev; // keep at least one year
         });
 
-    // Trend analysis for the selected papers
+    // ---------- Trend analysis for the selected papers ----------
     const maxLast = years.length - 1;
     const rows = TRENDS[trendTopic]
         .map((r) => {
@@ -163,6 +168,16 @@ export default function QuestionGenerator({ onNavigate, initialTopic }) {
         .sort((a, b) => b.score - a.score);
     const maxMark = Math.max(...rows.flatMap((r) => r.vals), 1);
     const likely = rows.slice(0, 3);
+
+    // ---------- Score ----------
+    const isCorrect = (item) =>
+        item.type === 'mcq' ? picked[item.id] === item.answer : selfMarks[item.id] === true;
+    const correctCount = questions.filter(isCorrect).length;
+    const percent = questions.length ? Math.round((correctCount / questions.length) * 100) : 0;
+    const answeredAll = questions.every((item) =>
+        item.type === 'mcq' ? picked[item.id] !== undefined : (typed[item.id] || '').trim() !== ''
+    );
+    const pendingSelfMark = questions.some((q) => q.type === 'short' && selfMarks[q.id] === undefined);
 
     // ---------- Styles ----------
     const selectClass =
@@ -220,7 +235,8 @@ export default function QuestionGenerator({ onNavigate, initialTopic }) {
 
     return (
         <div className="p-4 md:p-8 bg-slate-50 min-h-screen text-slate-800">
-                        <div className="flex items-start justify-between mb-6">
+            {/* Header with breadcrumb */}
+            <div className="flex items-start justify-between mb-6">
                 <div>
                     <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs mb-1.5 text-slate-400">
                         <button
@@ -450,38 +466,89 @@ export default function QuestionGenerator({ onNavigate, initialTopic }) {
                             {item.type === 'mcq' ? (
                                 <div className="mt-3 space-y-2">
                                     {item.options.map((opt, idx) => {
-                                        const chosen = picked[item.id] !== undefined;
                                         const isRight = idx === item.answer;
                                         const isPicked = picked[item.id] === idx;
                                         let style = 'border-slate-200 hover:bg-slate-50';
-                                        if (chosen && isRight) style = 'border-emerald-500 bg-emerald-50 text-emerald-800';
-                                        else if (chosen && isPicked) style = 'border-red-400 bg-red-50 text-red-700';
+                                        if (!submitted && isPicked) style = 'border-blue-500 bg-blue-50 text-blue-800';
+                                        if (submitted && isRight) style = 'border-emerald-500 bg-emerald-50 text-emerald-800';
+                                        else if (submitted && isPicked) style = 'border-red-400 bg-red-50 text-red-700';
                                         return (
-                                            <button key={idx} disabled={chosen}
+                                            <button key={idx} disabled={submitted}
                                                 onClick={() => setPicked((p) => ({ ...p, [item.id]: idx }))}
                                                 className={`w-full text-left text-sm border rounded-lg px-3 py-2 transition ${style}`}>
                                                 {String.fromCharCode(65 + idx)}. {opt}
                                             </button>
                                         );
                                     })}
-                                    {picked[item.id] !== undefined && (
-                                        <p className="text-xs text-slate-600 bg-slate-50 rounded-lg p-3">💡 {item.explain}</p>
+                                    {submitted && (
+                                        <p className="text-xs text-slate-600 bg-slate-50 rounded-lg p-3">
+                                            {isCorrect(item) ? '✅ Correct. ' : '❌ Incorrect. '}💡 {item.explain}
+                                        </p>
                                     )}
                                 </div>
                             ) : (
-                                <div className="mt-3">
-                                    <button onClick={() => setRevealed((r) => ({ ...r, [item.id]: !r[item.id] }))}
-                                        className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-800">
-                                        {revealed[item.id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                                        {revealed[item.id] ? 'Hide model answer' : 'Show model answer'}
-                                    </button>
-                                    {revealed[item.id] && (
-                                        <p className="text-sm text-slate-700 bg-slate-50 rounded-lg p-3 mt-2">{item.explain}</p>
+                                <div className="mt-3 space-y-2">
+                                    <textarea rows={3} disabled={submitted}
+                                        value={typed[item.id] || ''}
+                                        onChange={(e) => setTyped((t) => ({ ...t, [item.id]: e.target.value }))}
+                                        placeholder="Type your answer here..."
+                                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-50" />
+                                    {submitted && (
+                                        <>
+                                            <p className="text-sm text-slate-700 bg-slate-50 rounded-lg p-3">
+                                                <span className="font-semibold">Model answer: </span>{item.explain}
+                                            </p>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs text-slate-500">Compare and mark yourself:</span>
+                                                <button onClick={() => setSelfMarks((m) => ({ ...m, [item.id]: true }))}
+                                                    className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition ${selfMarks[item.id] === true ? 'bg-emerald-500 text-white border-emerald-500' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                                                    I got it right
+                                                </button>
+                                                <button onClick={() => setSelfMarks((m) => ({ ...m, [item.id]: false }))}
+                                                    className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition ${selfMarks[item.id] === false ? 'bg-red-500 text-white border-red-500' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                                                    I missed it
+                                                </button>
+                                            </div>
+                                        </>
                                     )}
                                 </div>
                             )}
                         </div>
                     ))}
+
+                    {!submitted ? (
+                        <div className="flex items-center gap-3">
+                            <button onClick={() => setSubmitted(true)} disabled={!answeredAll}
+                                className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-semibold rounded-lg px-6 py-2.5 text-sm">
+                                Submit Answers
+                            </button>
+                            {!answeredAll && (
+                                <span className="text-xs text-slate-400">Answer every question to submit.</span>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="bg-white rounded-xl shadow p-6 text-center border-2 border-blue-100">
+                            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Your Result</p>
+                            <p className={`text-5xl font-black mt-2 ${percent >= 60 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                {percent}%
+                            </p>
+                            <p className="text-lg font-semibold text-slate-700 mt-1">
+                                {correctCount}/{questions.length} correct
+                            </p>
+                            <p className="text-sm text-slate-500 mt-2">
+                                {percent >= 80 ? 'Excellent work!' : percent >= 60 ? 'Good job, keep practising.' : 'Keep going, review the explanations and try again.'}
+                            </p>
+                            {pendingSelfMark && (
+                                <p className="text-xs text-amber-600 mt-2">
+                                    Mark your short answers above to update the final score.
+                                </p>
+                            )}
+                            <button onClick={() => generate(lastRun.topic, lastRun.source)}
+                                className="mt-4 inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg px-5 py-2 text-sm">
+                                <RefreshCw className="w-4 h-4" /> Try New Questions
+                            </button>
+                        </div>
+                    )}
                 </div>
             )}
 
