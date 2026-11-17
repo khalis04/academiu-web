@@ -7,6 +7,7 @@ import SettingsTab from './components/SettingsTab';
 import AiDiagnostic from './components/AiDiagnostic';
 import Registration from './components/Registration';
 import QuestionGenerator from './components/QuestionGenerator';
+import AcademicRecords from './components/AcademicRecords';
 import {
   LayoutDashboard,
   Database,
@@ -211,27 +212,14 @@ export default function App() {
           <QuestionGenerator onNavigate={(tab) => setActiveTab(tab)} />
         )}
 
+        {/* Academic Records (CRUDS) Module */}
+        {activeTab === 'records' && (
+          <AcademicRecords onNavigate={(tab) => setActiveTab(tab)} />
+        )}
+
         {/* Settings Module */}
         {activeTab === 'settings' && (
           <SettingsTab onNavigate={(tab) => setActiveTab(tab)} />
-        )}
-
-        {/* Teammates' Unmerged Modules Fallback (Records) */}
-        {activeTab === 'records' && (
-          <div className="p-8 text-center mt-20">
-            <h2 className="text-xl font-bold text-slate-700 capitalize">
-              Academic Records (CRUDS)
-            </h2>
-            <p className="text-sm text-slate-400 mt-2">
-              This module slot is ready for your teammate to plug in their component.
-            </p>
-            <button
-              onClick={() => setActiveTab('dashboard')}
-              className="mt-6 text-xs text-blue-600 font-semibold underline hover:text-blue-800"
-            >
-              Back to Dashboard Overview
-            </button>
-          </div>
         )}
       </main>
     </div>
