@@ -1,257 +1,423 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import {
-    Sparkles,
-    Flame,
     Trophy,
-    Play,
+    Swords,
     ArrowRight,
-    TrendingUp,
-    Brain,
-    Award,
-    Zap,
-    CheckCircle2,
-    AlertCircle
+    Star,
+    BarChart3,
+    Folder,
+    AlertTriangle,
+    FolderArchive,
+    Calendar,
+    Pencil,
+    Check,
+    X,
+    RotateCcw,
+    CheckCircle2
 } from 'lucide-react';
+import { RankCrest, getSeasonDurationParts, formatSeasonDuration } from '../App';
 
-export default function DashboardOverview({ onNavigate = () => { }, onNavigateToDrill }) {
-    const user = {
-        name: 'Muhammad Nabil',
-        streak: 4,
-        points: 1240,
-        solvedCount: 38,
-        projectedGpa: '3.62',
-        weakestTopic: 'Subnet Masking & IP Arithmetic',
-        weakestDimension: 'Calculation',
+export default function DashboardOverview({
+    user,
+    rankInfo,
+    matchHistory = [],
+    currentSeason = null,
+    onUpdateSeason,
+    onStartNewSeason,
+    onNavigate = () => { },
+}) {
+    const [isEditingSeason, setIsEditingSeason] = useState(false);
+    const [seasonDraft, setSeasonDraft] = useState('');
+    const [yearsDraft, setYearsDraft] = useState('0');
+    const [monthsDraft, setMonthsDraft] = useState('0');
+
+    const playerName = user?.name || 'Player';
+    const totalMatches = matchHistory.length;
+    const avgScore =
+        totalMatches > 0
+            ? Math.round(matchHistory.reduce((sum, m) => sum + m.score, 0) / totalMatches)
+            : 0;
+
+    const starsLeft = rankInfo.nextTier ? rankInfo.starsNeeded - rankInfo.starsInTier : 0;
+
+    // Detect unique weak subjects & subtopics (< 60%)
+    const weakItems = useMemo(() => {
+        const seen = new Set();
+        return matchHistory
+            .filter((m) => m.score < 60)
+            .filter((m) => {
+                const key = `${m.topic}::${m.subtopic}`.toLowerCase();
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+    }, [matchHistory]);
+
+    const parsedYearsDraft = Math.max(0, parseInt(yearsDraft, 10) || 0);
+    const parsedMonthsDraft = Math.max(0, parseInt(monthsDraft, 10) || 0);
+    const canSaveSeasonEdit =
+        seasonDraft.trim().length > 0 && (parsedYearsDraft > 0 || parsedMonthsDraft > 0);
+
+    const startSeasonEdit = () => {
+        if (!currentSeason) return;
+        const { years, months } = getSeasonDurationParts(currentSeason);
+        setSeasonDraft(currentSeason.name);
+        setYearsDraft(String(years));
+        setMonthsDraft(String(months));
+        setIsEditingSeason(true);
     };
 
-    const quickActions = [
-        {
-            title: 'Performance Report',
-            desc: 'See score trends & weakness radar',
-            icon: TrendingUp,
-            tab: 'performance',
-            color: 'from-blue-600 to-indigo-600',
-            badge: 'Updated Today'
-        },
-        {
-            title: 'Achievement Badges',
-            desc: 'View unlocked milestones & gains',
-            icon: Trophy,
-            tab: 'achievement',
-            color: 'from-amber-500 to-orange-500',
-            badge: '4 Unlocked'
-        },
-        {
-            title: 'AI Diagnostic',
-            desc: 'Identify new learning blind spots',
-            icon: Brain,
-            tab: 'diagnostic',
-            color: 'from-purple-600 to-pink-600',
-            badge: 'AI Active'
-        },
-        {
-            title: 'Question Generator',
-            desc: 'Create personalized exam drills',
-            icon: Zap,
-            tab: 'generator',
-            color: 'from-emerald-600 to-teal-600',
-            badge: 'Unlimited'
+    const saveSeasonEdit = (e) => {
+        if (e) e.preventDefault();
+        if (!canSaveSeasonEdit) return;
+        if (onUpdateSeason) {
+            onUpdateSeason({
+                name: seasonDraft.trim(),
+                durationYears: parsedYearsDraft,
+                durationMonths: parsedMonthsDraft
+            });
         }
-    ];
+        setIsEditingSeason(false);
+    };
 
     return (
-        <div className="p-4 md:p-8 bg-slate-50 min-h-screen text-slate-800 space-y-6">
-            {/* 1. Header & Quick Habit Chips */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-slate-200 gap-4">
-                <div>
-                    <span className="text-[11px] font-bold text-blue-600 uppercase tracking-wider bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200 inline-flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5" />
-                        UTeM Group 42 Study Portal
-                    </span>
-                    <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight mt-1.5">
-                        Welcome back, {user.name}! 🚀
+        <div className="game-fit text-slate-800">
+            {/* Compact Lobby Header */}
+            <div className="flex items-center justify-between gap-3 shrink-0">
+                <div className="min-w-0">
+                    <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight truncate">
+                        Lobby — {playerName}
                     </h1>
-                    <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                        Ready to knock out your weaknesses today? You're on track for a great semester.
-                    </p>
+                    <p className="text-xs text-slate-500">Season standing, active folder, and quick launch</p>
                 </div>
 
-                {/* Gamified Habit Chips (Clickable -> maps to achievements) */}
-                <div className="flex items-center gap-3">
-                    <div
-                        onClick={() => onNavigate('achievement')}
-                        title="Click to view streak milestones"
-                        className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-800 px-3.5 py-2 rounded-xl text-xs font-bold shadow-sm cursor-pointer hover:bg-amber-100/70 transition active:scale-95"
-                    >
-                        <Flame className="w-4 h-4 text-amber-500 fill-amber-500 animate-pulse" />
-                        <span>{user.streak}-Day Streak!</span>
-                    </div>
-                    <div
-                        onClick={() => onNavigate('achievement')}
-                        title="Click to view points & badges"
-                        className="flex items-center gap-2 bg-indigo-50 border border-indigo-200 text-indigo-800 px-3.5 py-2 rounded-xl text-xs font-bold shadow-sm cursor-pointer hover:bg-indigo-100/70 transition active:scale-95"
-                    >
-                        <Trophy className="w-4 h-4 text-indigo-500" />
-                        <span>{user.points} XP</span>
-                    </div>
+                <div className="hidden sm:flex items-center gap-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 shrink-0">
+                    <span className="inline-flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-sm bg-[#0A1630] border border-[#8FB4FF]/50" />
+                        System Info
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-sm bg-[#1C3872] border border-[#D8B878]" />
+                        Your Content
+                    </span>
                 </div>
             </div>
 
-            {/* 2. Priority AI Action Card (Clickable -> maps to question generator drill) */}
-            <div className="bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-900 rounded-2xl p-6 text-white shadow-xl shadow-blue-600/10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                <div className="space-y-2 max-w-xl">
-                    <div className="inline-flex items-center gap-2 bg-white/10 px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-sm">
-                        <Zap className="w-3.5 h-3.5 text-yellow-300 fill-yellow-300" />
-                        <span>Today's Recommended Move</span>
-                    </div>
-                    <h2 className="text-xl md:text-2xl font-black tracking-tight leading-tight">
-                        Fix Calculation Bottlenecks in {user.weakestTopic}
-                    </h2>
-                    <p className="text-xs sm:text-sm text-blue-100/90 leading-relaxed">
-                        Your recent practice tests flagged a <strong>48% accuracy</strong> on numeric conversions. Take a quick 5-question targeted drill to level up your score.
-                    </p>
-                </div>
-
-                <button
-                    onClick={() => (onNavigateToDrill ? onNavigateToDrill(user.weakestDimension) : onNavigate('generator'))}
-                    className="flex items-center justify-center gap-2 bg-white hover:bg-slate-100 text-blue-700 font-bold text-xs sm:text-sm px-6 py-3.5 rounded-xl shadow-lg transition active:scale-95 shrink-0"
-                >
-                    <Play className="w-4 h-4 fill-current" />
-                    <span>Start 5-Min Drill Now</span>
-                </button>
-            </div>
-
-            {/* 3. Four Vital Metric Cards (Clickable -> maps to corresponding modules) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* GPA -> Achievement Module */}
-                <div
-                    onClick={() => onNavigate('achievement')}
-                    className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:border-blue-400 hover:shadow-md cursor-pointer transition-all duration-200 active:scale-95"
-                    title="Click to view academic transcript"
-                >
-                    <div className="flex items-center justify-between text-slate-400 mb-1">
-                        <span className="text-[11px] font-bold uppercase tracking-wider">Projected GPA</span>
-                        <Award className="w-4 h-4 text-emerald-500" />
-                    </div>
-                    <div className="text-2xl font-black text-slate-900">{user.projectedGpa}</div>
-                    <p className="text-[11px] font-semibold text-emerald-600 mt-2 flex items-center justify-between">
-                        <span className="flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3" /> Top 15% in Cohort
-                        </span>
-                        <ArrowRight className="w-3 h-3 text-slate-300" />
-                    </p>
-                </div>
-
-                {/* Questions Solved -> Performance History */}
-                <div
-                    onClick={() => onNavigate('performance')}
-                    className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:border-blue-400 hover:shadow-md cursor-pointer transition-all duration-200 active:scale-95"
-                    title="Click to view full practice log"
-                >
-                    <div className="flex items-center justify-between text-slate-400 mb-1">
-                        <span className="text-[11px] font-bold uppercase tracking-wider">Questions Solved</span>
-                        <CheckCircle2 className="w-4 h-4 text-blue-500" />
-                    </div>
-                    <div className="text-2xl font-black text-slate-900">{user.solvedCount} Questions</div>
-                    <p className="text-[11px] text-slate-500 mt-2 flex items-center justify-between">
-                        <span>Across 5 practice rounds</span>
-                        <ArrowRight className="w-3 h-3 text-slate-300" />
-                    </p>
-                </div>
-
-                {/* Weakest Skill -> AI Question Generator Drill */}
-                <div
-                    onClick={() => (onNavigateToDrill ? onNavigateToDrill('Calculation') : onNavigate('generator'))}
-                    className="bg-white p-5 rounded-2xl border border-rose-200 bg-rose-50/20 shadow-sm hover:border-rose-400 hover:shadow-md cursor-pointer transition-all duration-200 active:scale-95"
-                    title="Click to drill this weakness"
-                >
-                    <div className="flex items-center justify-between text-rose-500 mb-1">
-                        <span className="text-[11px] font-bold uppercase tracking-wider">Weakest Skill</span>
-                        <AlertCircle className="w-4 h-4 text-rose-500" />
-                    </div>
-                    <div className="text-2xl font-black text-rose-600">Calculation (48%)</div>
-                    <p className="text-[11px] font-bold text-rose-600 mt-2 flex items-center justify-between">
-                        <span>Needs revision • Practice now</span>
-                        <Play className="w-3 h-3 fill-rose-600" />
-                    </p>
-                </div>
-
-                {/* Strongest Skill -> Performance Radar */}
-                <div
-                    onClick={() => onNavigate('performance')}
-                    className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:border-blue-400 hover:shadow-md cursor-pointer transition-all duration-200 active:scale-95"
-                    title="Click to view cognitive radar"
-                >
-                    <div className="flex items-center justify-between text-slate-400 mb-1">
-                        <span className="text-[11px] font-bold uppercase tracking-wider">Strongest Skill</span>
-                        <Sparkles className="w-4 h-4 text-amber-500" />
-                    </div>
-                    <div className="text-2xl font-black text-emerald-600">Language (90%)</div>
-                    <p className="text-[11px] text-slate-500 mt-2 flex items-center justify-between">
-                        <span>Exam ready & mastered</span>
-                        <ArrowRight className="w-3 h-3 text-slate-300" />
-                    </p>
-                </div>
-            </div>
-
-            {/* 4. Quick Portal Launchpad (Clickable -> maps to all core modules) */}
-            <div>
-                <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-base font-bold text-slate-900">Explore System Modules</h3>
-                    <span className="text-xs text-slate-400">Click any card to jump straight in</span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {quickActions.map((action) => {
-                        const Icon = action.icon;
-                        return (
-                            <div
-                                key={action.title}
-                                onClick={() => onNavigate(action.tab)}
-                                className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md hover:border-blue-400 cursor-pointer transition-all duration-200 hover:-translate-y-1 group active:scale-95 flex flex-col justify-between"
-                            >
-                                <div>
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div className={`w-10 h-10 rounded-xl bg-gradient-to-tr ${action.color} flex items-center justify-center text-white shadow-md shadow-slate-200`}>
-                                            <Icon className="w-5 h-5" />
-                                        </div>
-                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 group-hover:bg-blue-50 group-hover:text-blue-600 transition">
-                                            {action.badge}
-                                        </span>
-                                    </div>
-
-                                    <h4 className="font-bold text-slate-900 group-hover:text-blue-600 transition text-sm">
-                                        {action.title}
-                                    </h4>
-                                    <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                                        {action.desc}
-                                    </p>
-                                </div>
-
-                                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-blue-600">
-                                    <span>Open Module</span>
-                                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition" />
+            {/* Main 2-Column Command Grid */}
+            <div className="game-fit-body grid grid-cols-1 lg:grid-cols-12 gap-3 min-h-0">
+                {/* LEFT COLUMN (7 cols): SYSTEM TELEMETRY + RANK ARENA HERO */}
+                <div className="lg:col-span-7 flex flex-col gap-3 min-h-0">
+                    {/* Top Telemetry Strip: Average Score & Total Stars */}
+                    <div className="grid grid-cols-2 gap-3 shrink-0">
+                        <div className="game-card-sys px-4 py-3.5 rounded-2xl flex items-center justify-between">
+                            <div>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                                    Average Score
+                                </span>
+                                <div className="text-2xl font-black font-mono text-slate-900 mt-0.5">
+                                    {totalMatches > 0 ? `${avgScore}%` : '—'}
                                 </div>
                             </div>
-                        );
-                    })}
-                </div>
-            </div>
+                            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                                <BarChart3 className="w-5 h-5" />
+                            </div>
+                        </div>
 
-            {/* 5. Motivational Tip & Mapping Link */}
-            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-600">
-                <div className="flex items-center gap-2">
-                    <span className="text-lg">💡</span>
-                    <span>
-                        <strong>Study Tip:</strong> Solving just 3 questions a day retains 80% more concept clarity than cramming before finals.
-                    </span>
+                        <div className="game-card-sys px-4 py-3.5 rounded-2xl flex items-center justify-between">
+                            <div>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                                    Total Stars
+                                </span>
+                                <div className="text-2xl font-black font-mono text-slate-900 mt-0.5">
+                                    {rankInfo.totalStars}
+                                </div>
+                            </div>
+                            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center shrink-0">
+                                <Star className="w-5 h-5 fill-amber-500" />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Primary Hero: Rank Crest + Tier Progress + Play CTA */}
+                    <div className="flex-1 min-h-0 game-card-sys rounded-2xl p-6 flex flex-col items-center justify-center text-center gap-5">
+                        <div className="flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left">
+                            <RankCrest tierName={rankInfo.currentTier.name} size="xl" />
+
+                            <div className="space-y-2.5 max-w-sm w-full">
+                                <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200">
+                                    {rankInfo.currentTier.name} Division
+                                </span>
+
+                                <h2 className="text-2xl md:text-3xl font-black text-slate-900 leading-tight">
+                                    {rankInfo.nextTier
+                                        ? `${starsLeft} ${starsLeft === 1 ? 'Star' : 'Stars'} to ${rankInfo.nextTier.name}`
+                                        : 'Mythic Division Reached'}
+                                </h2>
+
+                                {/* Tier Progress Bar */}
+                                <div className="space-y-1.5 pt-1">
+                                    <div className="flex items-center justify-between text-xs font-mono font-bold text-slate-400">
+                                        <span>
+                                            {rankInfo.nextTier
+                                                ? `Progress to ${rankInfo.nextTier.name}`
+                                                : 'Mythic (∞)'}
+                                        </span>
+                                        <span className="text-[#D8B878]">
+                                            {rankInfo.nextTier
+                                                ? `${rankInfo.starsInTier} / ${rankInfo.starsNeeded} ★`
+                                                : `${rankInfo.totalStars} ★`}
+                                        </span>
+                                    </div>
+                                    <div className="w-full h-2.5 rounded-full bg-slate-200 overflow-hidden">
+                                        <div
+                                            className="h-full rounded-full bg-gradient-to-r from-[#F5D78E] to-[#D8B878] transition-all duration-300"
+                                            style={{ width: `${rankInfo.progressPct ?? 0}%` }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <p className="text-[11px] text-slate-500">
+                                    60%+ = 1 Star • 80%+ = 2 Stars • 100% = 3 Stars
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="w-full max-w-sm pt-2 border-t border-slate-100">
+                            <button
+                                type="button"
+                                onClick={() => onNavigate('generator')}
+                                className="w-full inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-7 py-3.5 rounded-xl transition"
+                            >
+                                <Swords className="w-4 h-4" />
+                                <span>Start Ranked Drill</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                <button
-                    onClick={() => onNavigate('performance')}
-                    className="text-blue-600 font-bold hover:underline shrink-0 text-left sm:text-right"
-                >
-                    Inspect My Performance Report ➔
-                </button>
+
+                {/* RIGHT COLUMN (5 cols): SEASON FOLDER + WEAKNESS + SHORTCUTS */}
+                <div className="lg:col-span-5 flex flex-col gap-3 min-h-0">
+                    {/* USER CONTENT: Active Season Big Folder */}
+                    {currentSeason && (
+                        <div className="game-card-user rounded-2xl p-4 flex flex-col gap-3 shrink-0">
+                            <div className="flex items-center justify-between gap-2">
+                                <span className="text-[10px] font-black uppercase tracking-wider text-[#D8B878] inline-flex items-center gap-1.5">
+                                    <FolderArchive className="w-3.5 h-3.5" />
+                                    Active Season Folder
+                                </span>
+                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200 text-slate-500">
+                                    <Calendar className="w-3 h-3" />
+                                    {formatSeasonDuration(currentSeason)}
+                                </span>
+                            </div>
+
+                            {isEditingSeason ? (
+                                <form onSubmit={saveSeasonEdit} className="space-y-2.5">
+                                    <div>
+                                        <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
+                                            Season Name
+                                        </label>
+                                        <input
+                                            type="text"
+                                            autoFocus
+                                            value={seasonDraft}
+                                            onChange={(e) => setSeasonDraft(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Escape') setIsEditingSeason(false);
+                                            }}
+                                            placeholder="e.g. Tingkatan 1, Sem 1"
+                                            className="w-full px-3 py-1.5 rounded-xl border text-xs font-bold focus:outline-none"
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
+                                                Years
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="20"
+                                                value={yearsDraft}
+                                                onChange={(e) => setYearsDraft(e.target.value)}
+                                                className="w-full px-3 py-1.5 rounded-xl border text-xs font-mono font-bold focus:outline-none"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
+                                                Months
+                                            </label>
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max="60"
+                                                value={monthsDraft}
+                                                onChange={(e) => setMonthsDraft(e.target.value)}
+                                                className="w-full px-3 py-1.5 rounded-xl border text-xs font-mono font-bold focus:outline-none"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-between gap-2 pt-0.5">
+                                        <span className="text-[10px] font-mono text-slate-400">
+                                            {parsedYearsDraft > 0 || parsedMonthsDraft > 0
+                                                ? formatSeasonDuration({
+                                                    durationYears: parsedYearsDraft,
+                                                    durationMonths: parsedMonthsDraft
+                                                })
+                                                : 'Enter at least 1 month or year'}
+                                        </span>
+
+                                        <div className="flex items-center gap-1.5">
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsEditingSeason(false)}
+                                                title="Cancel"
+                                                className="p-1.5 rounded-xl bg-slate-100 text-slate-600 shrink-0"
+                                            >
+                                                <X className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                disabled={!canSaveSeasonEdit}
+                                                title="Save Changes"
+                                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-[11px] font-bold disabled:opacity-40 shrink-0"
+                                            >
+                                                <Check className="w-3.5 h-3.5" />
+                                                Save
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            ) : (
+                                <>
+                                    <div className="flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-1.5 min-w-0">
+                                            <h3 className="text-base font-black text-slate-900 truncate">
+                                                {currentSeason.name}
+                                            </h3>
+                                            <button
+                                                type="button"
+                                                onClick={startSeasonEdit}
+                                                title="Edit Season Name & Duration"
+                                                className="p-1 rounded-md text-slate-400 hover:text-[#D8B878] transition shrink-0"
+                                            >
+                                                <Pencil className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={onStartNewSeason}
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold transition shrink-0"
+                                        >
+                                            <RotateCcw className="w-3 h-3" />
+                                            New Season
+                                        </button>
+                                    </div>
+
+                                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                                        Stores all subject folders, drills, and rank progress. Starting a new season archives this folder to your Season Report.
+                                    </p>
+                                </>
+                            )}
+                        </div>
+                    )}
+
+                    {/* ALERT / STATUS: Weakness Radar */}
+                    {weakItems.length > 0 ? (
+                        <div className="game-card-alert rounded-2xl p-4 flex flex-col gap-2.5 shrink-0">
+                            <div className="flex items-center justify-between gap-2">
+                                <span className="text-[10px] font-black uppercase tracking-wider text-rose-200 inline-flex items-center gap-1.5">
+                                    <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                                    Weak Topics ({weakItems.length})
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => onNavigate('records')}
+                                    className="text-[11px] font-bold text-rose-200 hover:text-white underline underline-offset-2"
+                                >
+                                    Fix in Vault
+                                </button>
+                            </div>
+
+                            <div className="flex flex-wrap gap-1.5">
+                                {weakItems.slice(0, 3).map((item) => (
+                                    <span
+                                        key={item.id}
+                                        className="text-[11px] font-bold bg-rose-950/60 border border-rose-400/40 text-rose-100 px-2.5 py-1 rounded-lg"
+                                    >
+                                        {item.topic}: <span className="text-rose-300">{item.subtopic}</span> ({item.score}%)
+                                    </span>
+                                ))}
+                                {weakItems.length > 3 && (
+                                    <span className="text-[11px] font-bold text-rose-300 self-center">
+                                        +{weakItems.length - 3} more
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="game-card-sys rounded-2xl px-4 py-3 flex items-center gap-2.5 shrink-0">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                            <span className="text-xs font-bold text-slate-700">
+                                All practiced topics are above the 60% target.
+                            </span>
+                        </div>
+                    )}
+
+                    {/* USER CONTENT: Side-by-Side Workspace Shortcuts */}
+                    <div className="flex-1 min-h-0 grid grid-cols-2 gap-3">
+                        <button
+                            type="button"
+                            onClick={() => onNavigate('records')}
+                            className="text-left game-card-user p-4 rounded-2xl transition group flex flex-col justify-between"
+                        >
+                            <div className="space-y-2.5">
+                                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                                    <Folder className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-black text-slate-900 group-hover:text-[#D8B878] transition">
+                                        Subject Vault
+                                    </h3>
+                                    <p className="text-[11px] text-slate-500 mt-0.5">
+                                        Saved drills & weak topics
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="mt-3 flex items-center justify-between text-xs font-bold text-[#D8B878]">
+                                <span>Open</span>
+                                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition" />
+                            </div>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => onNavigate('stats')}
+                            className="text-left game-card-user p-4 rounded-2xl transition group flex flex-col justify-between"
+                        >
+                            <div className="space-y-2.5">
+                                <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+                                    <Trophy className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-black text-slate-900 group-hover:text-[#D8B878] transition">
+                                        Season Report
+                                    </h3>
+                                    <p className="text-[11px] text-slate-500 mt-0.5">
+                                        Rank ladder & archives
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="mt-3 flex items-center justify-between text-xs font-bold text-[#D8B878]">
+                                <span>View</span>
+                                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition" />
+                            </div>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     );

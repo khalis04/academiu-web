@@ -1,0 +1,512 @@
+/* =========================================================
+   ACADEMIU GAME MODE — bottom-dock layout
+   Everything is scoped to .game-shell, so FrontPage and the
+   rank-up modal are untouched.
+   ========================================================= */
+
+.game-shell {
+    /* approx. height of HUD + dock, used so short pages still fill the stage */
+    --game-chrome: 150px;
+    color: #FAF6EE;
+    background:
+        radial-gradient(900px 500px at 85% -10%, rgba(30, 63, 138, 0.55), transparent),
+        linear-gradient(180deg, #09152E, #0D1F44);
+}
+
+.game-shell::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background-image:
+        linear-gradient(rgba(216, 184, 120, 0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(216, 184, 120, 0.045) 1px, transparent 1px);
+    background-size: 44px 44px;
+}
+
+.game-shell>* {
+    position: relative;
+    z-index: 1;
+}
+
+/* ---------- HUD ---------- */
+.game-hud {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 16px;
+    background: linear-gradient(180deg, #152C5B, #0D1F44);
+    border-bottom: 2px solid #D8B878;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+}
+
+.game-logo-pill {
+    background: #FFFDF9;
+    border-radius: 14px;
+    padding: 3px 10px;
+    border-bottom: 3px solid #E4D8C4;
+}
+
+.game-player {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 14px 5px 6px;
+    border-radius: 16px;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(216, 184, 120, 0.35);
+    transition: border-color 0.2s, transform 0.2s;
+}
+
+.game-player:hover {
+    border-color: #D8B878;
+    transform: translateY(-1px);
+}
+
+.game-pips {
+    display: flex;
+    gap: 3px;
+}
+
+.game-pip {
+    width: 18px;
+    height: 7px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.14);
+}
+
+.game-pip.on {
+    background: linear-gradient(90deg, #F5D78E, #D8B878);
+    box-shadow: 0 0 8px rgba(216, 184, 120, 0.7);
+}
+
+.game-stars {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 14px;
+    font-weight: 900;
+    font-size: 14px;
+    color: #FCD34D;
+    background: rgba(251, 191, 36, 0.12);
+    border: 1px solid rgba(251, 191, 36, 0.4);
+}
+
+.game-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+    color: #A9B8D6;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    transition: all 0.15s;
+}
+
+.game-icon-btn:hover {
+    color: #FFF;
+    border-color: #D8B878;
+}
+
+/* ---------- Bottom dock (in normal flow: the stage ends where it starts) ---------- */
+.game-dock {
+    flex-shrink: 0;
+    padding: 6px 10px calc(6px + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(0deg, #09152E, #0D1F44);
+    border-top: 2px solid #D8B878;
+    box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.4);
+}
+
+.game-dock-inner {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    max-width: 760px;
+    margin: 0 auto;
+}
+
+.game-dock-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 120px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 4px 5px;
+    border-radius: 14px;
+    color: #A9B8D6;
+    border: 1px solid transparent;
+    border-bottom: 3px solid rgba(0, 0, 0, 0.3);
+    background: rgba(255, 255, 255, 0.04);
+    transition: all 0.15s;
+}
+
+.game-dock-btn:hover {
+    color: #FFF;
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateY(-2px);
+}
+
+.game-dock-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 28px;
+    border-radius: 10px;
+}
+
+.game-dock-label {
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1.1;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.game-dock-btn.is-active {
+    color: #FFF;
+    background: linear-gradient(180deg, #3B6FE0, #1E3F8A);
+    border-color: #D8B878;
+    border-bottom-color: #8C6F2E;
+    box-shadow: 0 0 18px rgba(59, 111, 224, 0.5);
+    transform: translateY(-3px);
+}
+
+.game-dock-btn.is-active .game-dock-icon {
+    background: rgba(216, 184, 120, 0.3);
+    color: #FCE9B8;
+}
+
+@media (max-width: 480px) {
+    .game-hud {
+        padding: 6px 10px;
+    }
+
+    .game-stars {
+        padding: 6px 10px;
+    }
+
+    .game-dock {
+        padding-left: 6px;
+        padding-right: 6px;
+    }
+
+    .game-dock-inner {
+        gap: 4px;
+    }
+
+    .game-dock-label {
+        font-size: 9px;
+    }
+}
+
+/* ---------- Guest bar ---------- */
+.game-guest-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 20px;
+    font-size: 12px;
+    color: #FCD34D;
+    background: rgba(251, 191, 36, 0.1);
+    border-bottom: 1px solid rgba(251, 191, 36, 0.35);
+}
+
+.game-guest-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 10px;
+    font-weight: 800;
+    color: #09152E;
+    background: #FCD34D;
+}
+
+/* =========================================================
+   PAGE RESKIN (no JSX changes in the pages)
+   ========================================================= */
+
+/* page wrappers fill the stage (screen minus HUD and dock) and show the arena */
+.game-main .min-h-screen {
+    background: transparent !important;
+    min-height: calc(100vh - var(--game-chrome)) !important;
+}
+
+@supports (height: 100dvh) {
+    .game-main .min-h-screen {
+        min-height: calc(100dvh - var(--game-chrome)) !important;
+    }
+}
+
+/* panels */
+.game-main .bg-white {
+    background: linear-gradient(180deg, rgba(21, 44, 91, 0.92), rgba(13, 31, 68, 0.92)) !important;
+    border-color: rgba(216, 184, 120, 0.3) !important;
+    box-shadow: 0 6px 0 rgba(0, 0, 0, 0.25), 0 12px 30px rgba(0, 0, 0, 0.25) !important;
+}
+
+.game-main .bg-slate-50,
+.game-main .bg-slate-50\/60,
+.game-main .bg-slate-50\/70,
+.game-main .bg-slate-100 {
+    background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+.game-main .hover\:bg-slate-100:hover,
+.game-main .hover\:bg-slate-200:hover,
+.game-main .hover\:bg-slate-50\/80:hover,
+.game-main .hover\:bg-slate-50:hover {
+    background-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.game-main .bg-slate-200 {
+    background-color: rgba(255, 255, 255, 0.16) !important;
+}
+
+/* borders */
+.game-main .border-slate-200,
+.game-main .border-slate-200\/80,
+.game-main .border-slate-300,
+.game-main .border-slate-100 {
+    border-color: rgba(216, 184, 120, 0.2) !important;
+}
+
+.game-main .divide-slate-100>*+* {
+    border-color: rgba(216, 184, 120, 0.15) !important;
+}
+
+/* text */
+.game-main .text-slate-900,
+.game-main .text-slate-800 {
+    color: #FAF6EE !important;
+}
+
+.game-main .text-slate-700,
+.game-main .text-slate-600 {
+    color: #D6DEF0 !important;
+}
+
+.game-main .text-slate-500 {
+    color: #A9B8D6 !important;
+}
+
+.game-main .text-slate-400,
+.game-main .text-slate-300 {
+    color: #7F90B5 !important;
+}
+
+/* brand blue */
+.game-main .text-blue-600,
+.game-main .text-blue-700 {
+    color: #8FB4FF !important;
+}
+
+.game-main .text-blue-900 {
+    color: #DCE8FF !important;
+}
+
+.game-main .bg-blue-50,
+.game-main .bg-blue-50\/60,
+.game-main .bg-blue-50\/40,
+.game-main .hover\:bg-blue-50:hover,
+.game-main .hover\:bg-blue-50\/40:hover,
+.game-main .hover\:bg-blue-100:hover {
+    background-color: rgba(59, 111, 224, 0.16) !important;
+}
+
+.game-main .bg-blue-100 {
+    background-color: rgba(59, 111, 224, 0.28) !important;
+}
+
+.game-main .border-blue-200,
+.game-main .border-blue-300,
+.game-main .border-blue-400,
+.game-main .hover\:border-blue-300:hover {
+    border-color: rgba(143, 180, 255, 0.45) !important;
+}
+
+.game-main .hover\:border-blue-400:hover {
+    border-color: #D8B878 !important;
+}
+
+/* chunky primary buttons */
+.game-main .bg-blue-600 {
+    background: linear-gradient(180deg, #3B6FE0, #1E3F8A) !important;
+    border-bottom: 3px solid #0D1F44;
+    color: #FFF;
+    transition: transform 0.1s, filter 0.15s;
+}
+
+.game-main .bg-blue-600:hover,
+.game-main .hover\:bg-blue-700:hover {
+    filter: brightness(1.12);
+    background: linear-gradient(180deg, #4A7BEA, #25489B) !important;
+}
+
+.game-main .bg-blue-600:active {
+    transform: translateY(2px);
+    border-bottom-width: 1px;
+}
+
+.game-main .bg-emerald-600 {
+    border-bottom: 3px solid #065F46;
+}
+
+/* status colours */
+.game-main .bg-emerald-50,
+.game-main .bg-emerald-50\/30,
+.game-main .bg-emerald-50\/60 {
+    background-color: rgba(16, 185, 129, 0.14) !important;
+}
+
+.game-main .text-emerald-600,
+.game-main .text-emerald-700 {
+    color: #6EE7B7 !important;
+}
+
+.game-main .border-emerald-200,
+.game-main .border-emerald-400 {
+    border-color: rgba(16, 185, 129, 0.45) !important;
+}
+
+.game-main .bg-rose-50,
+.game-main .hover\:bg-rose-50:hover {
+    background-color: rgba(244, 63, 94, 0.15) !important;
+}
+
+.game-main .text-rose-600,
+.game-main .text-rose-700,
+.game-main .text-rose-900 {
+    color: #FDA4AF !important;
+}
+
+.game-main .border-rose-200 {
+    border-color: rgba(244, 63, 94, 0.45) !important;
+}
+
+.game-main .bg-amber-50,
+.game-main .bg-amber-50\/70 {
+    background-color: rgba(251, 191, 36, 0.14) !important;
+}
+
+.game-main .text-amber-600,
+.game-main .text-amber-700,
+.game-main .text-amber-800 {
+    color: #FCD34D !important;
+}
+
+.game-main .border-amber-200 {
+    border-color: rgba(251, 191, 36, 0.45) !important;
+}
+
+.game-main .bg-orange-50 {
+    background-color: rgba(249, 115, 22, 0.15) !important;
+}
+
+.game-main .text-orange-700 {
+    color: #FDBA74 !important;
+}
+
+.game-main .border-orange-200 {
+    border-color: rgba(249, 115, 22, 0.45) !important;
+}
+
+/* form controls */
+.game-main input,
+.game-main select {
+    color: #FAF6EE !important;
+    background-color: rgba(9, 21, 46, 0.7) !important;
+    border-color: rgba(216, 184, 120, 0.3) !important;
+}
+
+.game-main input::placeholder {
+    color: #7F90B5;
+}
+
+.game-main input:focus,
+.game-main select:focus {
+    border-color: #D8B878 !important;
+    box-shadow: 0 0 0 3px rgba(216, 184, 120, 0.2);
+}
+
+.game-main select option {
+    background: #0D1F44;
+    color: #FAF6EE;
+}
+
+.game-main input:disabled,
+.game-main select:disabled {
+    opacity: 0.55;
+}
+
+/* tables */
+.game-main thead tr {
+    background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* rank ladder & selected states keep a gold glow */
+.game-main .ring-blue-500\/20 {
+    --tw-ring-color: rgba(216, 184, 120, 0.35);
+}
+
+@media print {
+
+    .game-hud,
+    .game-dock {
+        display: none !important;
+    }
+
+    .game-shell {
+        background: #fff !important;
+        color: #000;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .game-shell * {
+        transition: none !important;
+    }
+}
+
+/* =========================================================
+   SEMANTIC CARD ROLES (System Info vs. User Content vs. Alert)
+   ========================================================= */
+
+/* 1. System Info / Telemetry (Rank, GPA, KPIs) — Deep HUD Navy */
+.game-main .game-card-sys {
+    background: linear-gradient(180deg, rgba(10, 22, 48, 0.96), rgba(7, 16, 36, 0.96)) !important;
+    border: 1px solid rgba(143, 180, 255, 0.25) !important;
+    box-shadow: inset 0 1px 0 rgba(143, 180, 255, 0.12), 0 4px 16px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* 2. User Content / Interactive Workspace (Folders, Drills, Forms) — Royal Navy + Gold Edge */
+.game-main .game-card-user {
+    background: linear-gradient(180deg, rgba(28, 56, 114, 0.94), rgba(19, 40, 84, 0.94)) !important;
+    border: 1px solid rgba(216, 184, 120, 0.45) !important;
+    box-shadow: 0 4px 0 rgba(0, 0, 0, 0.28), 0 10px 24px rgba(0, 0, 0, 0.25) !important;
+}
+
+.game-main .game-card-user:hover {
+    border-color: #D8B878 !important;
+}
+
+/* 3. Weakness / Attention Alert — Crimson-Tinted Navy */
+.game-main .game-card-alert {
+    background: linear-gradient(180deg, rgba(136, 19, 55, 0.26), rgba(76, 5, 25, 0.34)) !important;
+    border: 1px solid rgba(244, 63, 94, 0.5) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
+}
