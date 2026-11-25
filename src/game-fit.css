@@ -1,66 +1,363 @@
-/* =========================================================
-   FIT-TO-SCREEN HELPERS — pages never scroll as a whole;
-   only long lists scroll inside their own panel.
-   Imported by GameShell.jsx (loads after game-theme.css).
-   ========================================================= */
+/* ==========================================================================
+   CLUTCHUP ARENA — FIXED VIEWPORT SHELL & LAYOUT SYSTEM (NO OUTER SCROLL)
+   ========================================================================== */
 
-.game-main {
-    overflow: hidden !important;
+html,
+body,
+#root {
+    height: 100%;
+    max-height: 100dvh;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: #09152e;
 }
 
-/* page root: fills the stage between the HUD and the dock */
+.game-shell {
+    height: 100dvh;
+    max-height: 100dvh;
+    width: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background-color: #09152e;
+}
+
+/* ----- TOP HUD ----- */
+.game-hud {
+    height: 58px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0 1rem;
+    background: rgba(13, 31, 68, 0.96);
+    border-bottom: 1px solid rgba(216, 184, 120, 0.25);
+    backdrop-filter: blur(10px);
+    z-index: 20;
+}
+
+.game-icon-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 0.75rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #d6def0;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    transition: all 0.16s ease;
+}
+
+.game-icon-btn:hover:not(:disabled) {
+    color: #faf6ee;
+    border-color: rgba(216, 184, 120, 0.65);
+    background: rgba(30, 63, 138, 0.55);
+}
+
+.game-logo-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.15rem 0.45rem;
+    border-radius: 0.75rem;
+    background: transparent;
+    border: 1px solid transparent;
+    transition: transform 0.16s ease, filter 0.16s ease;
+}
+
+.game-logo-pill:hover {
+    filter: brightness(1.06);
+}
+
+/* ----- MAIN STAGE ----- */
+.game-main {
+    flex: 1 1 0%;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 0.65rem 1rem;
+    gap: 0.6rem;
+}
+
+/* ----- BOTTOM NAVIGATION DOCK ----- */
+.game-dock {
+    height: 60px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 0.75rem;
+    background: rgba(13, 31, 68, 0.98);
+    border-top: 1px solid rgba(216, 184, 120, 0.25);
+    z-index: 20;
+}
+
+.game-dock-inner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    max-width: 780px;
+    width: 100%;
+}
+
+.game-dock-btn {
+    flex: 1 1 0%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.15rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: 0.75rem;
+    color: #a9b8d6;
+    border: 1px solid transparent;
+    transition: all 0.18s ease;
+}
+
+.game-dock-btn:hover {
+    color: #faf6ee;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.game-dock-btn.is-active {
+    color: #f5d78e;
+    background: rgba(30, 63, 138, 0.68);
+    border-color: rgba(216, 184, 120, 0.5);
+}
+
+.game-dock-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.game-dock-label {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+/* ----- INNER PAGE FIXED-FIT CONTAINERS ----- */
 .game-fit {
     height: 100%;
     min-height: 0;
+    overflow: hidden;
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    padding: 10px 14px;
+    gap: 0.65rem;
 }
 
-@media (min-width: 1024px) {
-    .game-fit {
-        gap: 12px;
-        padding: 12px 20px;
-    }
-}
-
-/* page body: scrolls on small screens only, fixed on desktop */
 .game-fit-body {
-    flex: 1 1 0;
+    flex: 1 1 0%;
     min-height: 0;
-    overflow-y: auto;
+    overflow: hidden;
 }
 
-@media (min-width: 1024px) {
-    .game-fit-body {
-        overflow: hidden;
-    }
-}
-
-/* long lists scroll inside their own panel */
+/* Internal List / Panel Scroller */
 .game-scroll {
     overflow-y: auto;
+    overflow-x: hidden;
     min-height: 0;
     scrollbar-width: thin;
-    scrollbar-color: #D8B878 transparent;
+    scrollbar-color: rgba(216, 184, 120, 0.45) transparent;
 }
 
 .game-scroll::-webkit-scrollbar {
     width: 6px;
-    height: 6px;
-}
-
-.game-scroll::-webkit-scrollbar-thumb {
-    background: rgba(216, 184, 120, 0.6);
-    border-radius: 6px;
 }
 
 .game-scroll::-webkit-scrollbar-track {
     background: transparent;
 }
 
-/* tighter panel shadow so stacked panels don't eat vertical space */
-.game-fit .bg-white {
-    box-shadow: 0 3px 0 rgba(0, 0, 0, 0.25), 0 8px 20px rgba(0, 0, 0, 0.22) !important;
+.game-scroll::-webkit-scrollbar-thumb {
+    background: rgba(216, 184, 120, 0.45);
+    border-radius: 9999px;
+}
+
+.game-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(245, 215, 142, 0.75);
+}
+
+/* ==========================================================================
+   SWALLOWTAIL BATTLE-BANNER ANNOUNCEMENT (FLAT & CRISP — NO GLOW EFFECT)
+   ========================================================================== */
+
+.pennant-banner-wrap {
+    position: relative;
+}
+
+.pennant-banner-frame {
+    position: relative;
+    padding: 3px 5px 3px 3px;
+    background: #d8b878;
+    clip-path: polygon(0 0, 100% 0, calc(100% - 26px) 50%, 100% 100%, 0 100%);
+    border-radius: 6px 0 0 6px;
+}
+
+.pennant-banner-wrap.is-maintenance .pennant-banner-frame {
+    background: #f43f5e;
+}
+
+.pennant-banner-inner {
+    position: relative;
+    overflow: hidden;
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    padding: 0.45rem 1.4rem 0.45rem 1rem;
+    background: linear-gradient(90deg, #122c66 0%, #1e46a3 55%, #163375 100%);
+    clip-path: polygon(0 0,
+            calc(100% - 1px) 0,
+            calc(100% - 26px) 50%,
+            calc(100% - 1px) 100%,
+            0 100%);
+    border-radius: 4px 0 0 4px;
+}
+
+.pennant-banner-wrap.is-maintenance .pennant-banner-inner {
+    background: linear-gradient(90deg, #5c0720 0%, #9f1239 55%, #6b0a26 100%);
+}
+
+/* ----- RESPONSIVE TUNING ----- */
+@media (max-width: 1023px) {
+    .game-main {
+        padding: 0.5rem 0.65rem;
+        gap: 0.5rem;
+    }
+
+    .pennant-banner-frame {
+        clip-path: polygon(0 0, 100% 0, calc(100% - 18px) 50%, 100% 100%, 0 100%);
+    }
+
+    .pennant-banner-inner {
+        min-height: 46px;
+        padding: 0.4rem 0.95rem 0.4rem 0.75rem;
+        clip-path: polygon(0 0,
+                calc(100% - 1px) 0,
+                calc(100% - 18px) 50%,
+                calc(100% - 1px) 100%,
+                0 100%);
+    }
+
+    /* ==========================================================================
+   CLUTCHUP ARENA — MAXIMIZED FRAMED CLASH-STYLE LOBBY THEME
+   ========================================================================== */
+
+    /* Royal-Blue Diamond Checkered Arena Background */
+    .cr-lobby-bg {
+        background-color: #102a5c;
+        background-image:
+            linear-gradient(45deg, rgba(255, 255, 255, 0.04) 25%, transparent 25%),
+            linear-gradient(-45deg, rgba(255, 255, 255, 0.04) 25%, transparent 25%),
+            linear-gradient(45deg, transparent 75%, rgba(255, 255, 255, 0.04) 75%),
+            linear-gradient(-45deg, transparent 75%, rgba(255, 255, 255, 0.04) 75%),
+            radial-gradient(circle at 50% 48%, #1d4a9e 0%, #0b1e47 80%);
+        background-size: 46px 46px, 46px 46px, 46px 46px, 46px 46px, 100% 100%;
+        background-position: 0 0, 0 23px, 23px -23px, -23px 0, 0 0;
+    }
+
+    /* Unified Beveled Game Frame Applied to Every Feature Panel */
+    .cr-feature-frame {
+        border: 1.5px solid rgba(216, 184, 120, 0.52);
+        border-bottom: 3.5px solid #060f24;
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.16),
+            inset 0 0 0 1px rgba(15, 36, 82, 0.65),
+            0 5px 12px rgba(4, 10, 26, 0.42);
+    }
+
+    /* Crisp Frame Header Strip */
+    .cr-frame-header {
+        background: linear-gradient(180deg, rgba(24, 58, 126, 0.96) 0%, rgba(14, 34, 78, 0.98) 100%);
+        border-bottom: 1px solid rgba(216, 184, 120, 0.35);
+    }
+
+    /* Row 1: Top Player Header Bar */
+    .cr-top-bar {
+        background: linear-gradient(180deg, rgba(16, 42, 92, 0.95) 0%, rgba(9, 23, 54, 0.98) 100%);
+    }
+
+    /* Row 2: Twin Panels */
+    .cr-twin-panel {
+        background: linear-gradient(180deg, rgba(20, 50, 108, 0.94) 0%, rgba(10, 26, 62, 0.98) 100%);
+    }
+
+    /* Row 3: Left & Right Framed Wing Docks */
+    .cr-wing-panel {
+        background: linear-gradient(180deg, rgba(15, 39, 88, 0.88) 0%, rgba(8, 21, 52, 0.95) 100%);
+    }
+
+    /* Row 3: Center Framed Rank Crest Arena */
+    .cr-center-stage {
+        background: radial-gradient(circle at 50% 42%,
+                rgba(36, 82, 173, 0.82) 0%,
+                rgba(13, 33, 77, 0.92) 65%,
+                rgba(8, 21, 52, 0.98) 100%);
+    }
+
+    /* Tactile Beveled Game Action Buttons Inside Wing Frames */
+    .cr-side-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.75rem;
+        background: linear-gradient(180deg, #2753a8 0%, #163370 100%);
+        border: 1.5px solid rgba(165, 198, 255, 0.42);
+        border-bottom: 3.5px solid #081533;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 4px 8px rgba(4, 10, 26, 0.42);
+        transition: transform 0.12s ease, filter 0.12s ease;
+    }
+
+    .cr-side-btn:hover {
+        filter: brightness(1.12);
+    }
+
+    .cr-side-btn:active {
+        transform: translateY(2px);
+        border-bottom-width: 1.5px;
+    }
+
+    /* Dark Rounded Pedestal Plaque Beneath Rank Crest */
+    .cr-plaque {
+        background: linear-gradient(180deg, #1b2845 0%, #0b1326 100%);
+        border: 2px solid #d8b878;
+        border-bottom: 4px solid #7d5f26;
+        box-shadow: 0 8px 18px rgba(4, 10, 26, 0.65);
+    }
+
+    /* Tactile 3D Golden-Amber "Battle" Button */
+    .cr-battle-btn {
+        background: linear-gradient(180deg, #ffd44d 0%, #f5a623 55%, #e2890c 100%);
+        border: 2px solid #fff0b3;
+        border-bottom: 5px solid #9e5600;
+        box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.5), 0 6px 16px rgba(4, 10, 26, 0.55);
+        transition: transform 0.1s ease, filter 0.12s ease;
+    }
+
+    .cr-battle-btn:hover {
+        filter: brightness(1.06);
+    }
+
+    .cr-battle-btn:active {
+        transform: translateY(3px);
+        border-bottom-width: 2px;
+    }
+
+    /* Row 4: Bottom 4 Framed Game Slots */
+    .cr-slot-card {
+        background: linear-gradient(180deg, rgba(18, 45, 98, 0.95) 0%, rgba(9, 23, 54, 0.98) 100%);
+    }
+
+    .cr-slot-card.is-highlight {
+        background: linear-gradient(180deg, rgba(16, 94, 72, 0.94) 0%, rgba(9, 54, 43, 0.98) 100%);
+        border-color: rgba(110, 231, 183, 0.65);
+        border-bottom-color: #052b22;
+    }
 }

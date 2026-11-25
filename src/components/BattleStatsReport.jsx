@@ -3,856 +3,551 @@ import {
     Chart as ChartJS,
     CategoryScale,
     LinearScale,
-    PointElement,
-    LineElement,
-    Filler,
+    BarElement,
     Tooltip,
-    Legend,
+    Legend
 } from 'chart.js';
-import { Line } from 'react-chartjs-2';
+import { Bar } from 'react-chartjs-2';
 import {
-    Star,
-    Swords,
-    Filter,
-    RotateCcw,
-    Eye,
-    ArrowLeft,
-    Download,
-    TrendingUp,
-    Play,
-    Trash2,
-    LayoutDashboard,
-    History,
+    BarChart3,
     FolderArchive,
-    Info,
+    AlertTriangle,
+    RotateCcw,
+    Trash2,
+    Star,
+    Target,
+    Swords,
     Calendar,
+    CheckCircle2,
     Folder
 } from 'lucide-react';
 import { RankCrest, formatSeasonDuration } from '../App';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
-
-const PASS_TARGET = 60;
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
 export default function BattleStatsReport({
     rankInfo,
     matchHistory = [],
-    currentSeason = null,
+    currentSeason,
     archivedSeasons = [],
     onDeleteArchivedSeason,
-    onNavigate,
+    onNavigate = () => { },
     onReplayDrillFile,
     onDeleteDrillFile
 }) {
-    const [selectedTopic, setSelectedTopic] = useState('All');
-    const [selectedSubtopic, setSelectedSubtopic] = useState('All');
-    const [selectedMatch, setSelectedMatch] = useState(null);
-    const [selectedArchive, setSelectedArchive] = useState(null);
-    const [view, setView] = useState('overview'); // 'overview' | 'history' | 'seasons'
-
-    const topics = useMemo(
-        () => ['All', ...Array.from(new Set(matchHistory.map((m) => m.topic)))],
-        [matchHistory]
+    const [viewMode, setViewMode] = useState('current'); // 'current' | 'archived'
+    const [historyFilter, setHistoryFilter] = useState('all'); // 'all' | 'weak'
+    const [selectedArchiveId, setSelectedArchiveId] = useState(
+        archivedSeasons[0]?.id || null
     );
 
-    const subtopics = useMemo(() => {
-        const pool =
-            selectedTopic === 'All'
-                ? matchHistory
-                : matchHistory.filter((m) => m.topic === selectedTopic);
-        return ['All', ...Array.from(new Set(pool.map((m) => m.subtopic)))];
-    }, [matchHistory, selectedTopic]);
+    const selectedArchive = useMemo(() => {
+        if (archivedSeasons.length === 0) return null;
+        return (
+            archivedSeasons.find((s) => s.id === selectedArchiveId) || archivedSeasons[0]
+        );
+    }, [archivedSeasons, selectedArchiveId]);
 
-    const filteredMatches = useMemo(() => {
-        return matchHistory.filter((m) => {
-            const topicMatch = selectedTopic === 'All' || m.topic === selectedTopic;
-            const subtopicMatch = selectedSubtopic === 'All' || m.subtopic === selectedSubtopic;
-            return topicMatch && subtopicMatch;
+    const subjectStats = useMemo(() => {
+        const map = new Map();
+        matchHistory.forEach((m) => {
+            const key = m.topic || 'General';
+            if (!map.has(key)) map.set(key, { sum: 0, count: 0 });
+            const entry = map.get(key);
+            entry.sum += m.score;
+            entry.count += 1;
         });
-    }, [matchHistory, selectedTopic, selectedSubtopic]);
+        return Array.from(map.entries()).map(([subject, data]) => ({
+            subject,
+            avg: Math.round(data.sum / data.count),
+            count: data.count
+        }));
+    }, [matchHistory]);
 
-    const chronological = useMemo(() => [...filteredMatches].reverse(), [filteredMatches]);
+    const kpis = useMemo(() => {
+        const total = matchHistory.length;
+        const passed = matchHistory.filter((m) => m.score >= 60).length;
+        const passRate = total > 0 ? Math.round((passed / total) * 100) : 0;
+        const avgScore =
+            total > 0
+                ? Math.round(matchHistory.reduce((s, m) => s + m.score, 0) / total)
+                : 0;
+        const weakCount = matchHistory.filter((m) => m.score < 60).length;
+        return { total, passed, passRate, avgScore, weakCount };
+    }, [matchHistory]);
 
-    const firstScore = chronological.length > 0 ? chronological[0].score : 0;
-    const latestScore = chronological.length > 0 ? chronological[chronological.length - 1].score : 0;
-    const scoreGain = latestScore - firstScore;
-    const passCount = filteredMatches.filter((m) => m.score >= PASS_TARGET).length;
-    const winRate =
-        filteredMatches.length > 0 ? Math.round((passCount / filteredMatches.length) * 100) : 0;
-
-    const kpiCards = [
-        {
-            label: 'First',
-            value: `${firstScore}%`,
-            valueClass: 'text-slate-900',
-            desc: 'Your very first drill score in this season (baseline).'
-        },
-        {
-            label: 'Latest',
-            value: `${latestScore}%`,
-            valueClass: 'text-blue-600',
-            desc: 'Your most recent completed drill score.'
-        },
-        {
-            label: 'Gain',
-            value: scoreGain >= 0 ? `+${scoreGain}%` : `${scoreGain}%`,
-            valueClass: scoreGain >= 0 ? 'text-emerald-600' : 'text-rose-600',
-            desc: 'Total score difference between your First and Latest drill.'
-        },
-        {
-            label: 'Pass Rate',
-            value: `${winRate}%`,
-            valueClass: 'text-slate-900',
-            desc: `Percentage of drills scoring ${PASS_TARGET}% or higher (${passCount}/${filteredMatches.length}).`
+    const filteredDrills = useMemo(() => {
+        if (historyFilter === 'weak') {
+            return matchHistory.filter((m) => m.score < 60);
         }
-    ];
+        return matchHistory;
+    }, [matchHistory, historyFilter]);
 
-    const improvementChartData = {
-        labels: chronological.map((_, idx) => `Drill #${idx + 1}`),
+    const chartData = {
+        labels: subjectStats.map((s) =>
+            s.subject.length > 16 ? `${s.subject.slice(0, 16)}…` : s.subject
+        ),
         datasets: [
             {
-                label: 'Score (%)',
-                data: chronological.map((m) => m.score),
-                borderColor: '#60A5FA',
-                backgroundColor: 'rgba(96, 165, 250, 0.18)',
-                pointBackgroundColor: '#D8B878',
-                pointBorderColor: '#0D1F44',
-                pointBorderWidth: 2,
-                pointRadius: 5,
-                tension: 0.3,
-                fill: true,
-            },
-            {
-                label: `Target (${PASS_TARGET}%)`,
-                data: chronological.map(() => PASS_TARGET),
-                borderColor: '#34D399',
-                borderWidth: 2,
-                borderDash: [6, 6],
-                pointRadius: 0,
-                fill: false,
-            },
-        ],
+                label: 'Avg Score (%)',
+                data: subjectStats.map((s) => s.avg),
+                backgroundColor: subjectStats.map((s) =>
+                    s.avg >= 60 ? 'rgba(216, 184, 120, 0.82)' : 'rgba(244, 63, 94, 0.78)'
+                ),
+                borderColor: subjectStats.map((s) => (s.avg >= 60 ? '#F5D78E' : '#FB7185')),
+                borderWidth: 1.5,
+                borderRadius: 8
+            }
+        ]
     };
 
-    const improvementChartOptions = {
+    const chartOptions = {
         responsive: true,
         maintainAspectRatio: false,
         scales: {
             y: {
-                min: 0,
+                beginAtZero: true,
                 max: 100,
-                ticks: { stepSize: 20, color: '#A9B8D6', font: { size: 11 } },
-                grid: { color: 'rgba(255, 255, 255, 0.08)' }
+                ticks: { stepSize: 20, color: '#94A3B8', font: { size: 10 } },
+                grid: { color: 'rgba(148, 163, 184, 0.14)' }
             },
             x: {
-                ticks: { color: '#A9B8D6', font: { size: 11 } },
+                ticks: { color: '#CBD5E1', font: { size: 10, weight: '600' } },
                 grid: { display: false }
-            },
-        },
-        plugins: {
-            legend: {
-                position: 'top',
-                align: 'end',
-                labels: {
-                    usePointStyle: true,
-                    boxWidth: 8,
-                    font: { size: 11, weight: '600' },
-                    color: '#D6DEF0'
-                }
-            },
-            tooltip: {
-                callbacks: {
-                    afterLabel: (ctx) => {
-                        const item = chronological[ctx.dataIndex];
-                        if (!item) return '';
-                        const delta = item.starDelta ?? item.starsEarned;
-                        const deltaLabel = delta > 0 ? `+${delta}` : `${delta}`;
-                        return `${item.topic} — ${item.subtopic} (${deltaLabel} ★)`;
-                    }
-                }
             }
         },
+        plugins: {
+            legend: { display: false }
+        }
     };
 
-    // ARCHIVED SEASON INSPECTION VIEW
-    if (selectedArchive) {
-        return (
-            <div className="game-fit text-slate-800">
-                <div className="flex items-center justify-between gap-3 shrink-0">
-                    <button
-                        type="button"
-                        onClick={() => setSelectedArchive(null)}
-                        className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-200 px-3.5 py-2 rounded-xl hover:border-blue-400 transition"
-                    >
-                        <ArrowLeft className="w-4 h-4" /> Back to Past Seasons
-                    </button>
-
-                    <button
-                        type="button"
-                        onClick={() => {
-                            if (window.confirm(`Permanently delete archived season "${selectedArchive.name}"?`)) {
-                                onDeleteArchivedSeason(selectedArchive.id);
-                                setSelectedArchive(null);
-                            }
-                        }}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold transition"
-                    >
-                        <Trash2 className="w-3.5 h-3.5" /> Delete Season
-                    </button>
-                </div>
-
-                <div className="game-card-sys rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
-                    <div className="flex items-center gap-4">
-                        <RankCrest tierName={selectedArchive.finalTier} size="lg" />
-                        <div>
-                            <span className="text-[10px] font-black uppercase tracking-wider text-[#D8B878]">
-                                Archived Season • {formatSeasonDuration(selectedArchive)}
-                            </span>
-                            <h1 className="text-xl font-black text-slate-900">{selectedArchive.name}</h1>
-                            <p className="text-xs text-slate-500">
-                                {selectedArchive.createdAt} — {selectedArchive.endedAt} • Final Rank:{' '}
-                                {selectedArchive.finalTier} ({selectedArchive.finalStars} Stars)
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 text-xs font-bold text-slate-400">
-                        <span>{selectedArchive.registeredSubjects.length} Folders</span>
-                        <span>•</span>
-                        <span>{selectedArchive.matchHistory.length} Drills</span>
-                    </div>
-                </div>
-
-                <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-3">
-                    {/* Archived Subject Folders */}
-                    <div className="lg:col-span-4 game-card-user rounded-2xl p-4 flex flex-col gap-2 min-h-0">
-                        <span className="text-xs font-black uppercase tracking-wider text-[#D8B878] shrink-0">
-                            Saved Subject Folders ({selectedArchive.registeredSubjects.length})
-                        </span>
-                        <div className="game-scroll flex-1 space-y-2 pr-1">
-                            {selectedArchive.registeredSubjects.length === 0 ? (
-                                <div className="text-xs text-slate-500 py-4 text-center">No folders recorded.</div>
-                            ) : (
-                                selectedArchive.registeredSubjects.map((sub) => (
-                                    <div
-                                        key={sub.id}
-                                        className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-2.5"
-                                    >
-                                        <Folder className="w-4 h-4 text-blue-600 shrink-0" />
-                                        <div className="min-w-0">
-                                            <div className="text-xs font-bold text-slate-900 truncate">{sub.name}</div>
-
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Archived Drill History */}
-                    <div className="lg:col-span-8 game-card-user rounded-2xl p-4 flex flex-col gap-2 min-h-0">
-                        <span className="text-xs font-black uppercase tracking-wider text-[#D8B878] shrink-0">
-                            Saved Drills ({selectedArchive.matchHistory.length})
-                        </span>
-                        <div className="game-scroll flex-1 space-y-2 pr-1">
-                            {selectedArchive.matchHistory.length === 0 ? (
-                                <div className="text-xs text-slate-500 py-4 text-center">No drills recorded.</div>
-                            ) : (
-                                selectedArchive.matchHistory.map((m) => {
-                                    const delta = m.starDelta ?? m.starsEarned;
-                                    return (
-                                        <div
-                                            key={m.id}
-                                            className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3 text-xs"
-                                        >
-                                            <div className="min-w-0">
-                                                <div className="font-bold text-slate-900 truncate">{m.subtopic}</div>
-                                                <div className="text-[11px] text-slate-500">
-                                                    {m.topic} • {m.date}
-                                                </div>
-                                            </div>
-                                            <div className="text-right shrink-0">
-                                                <div
-                                                    className={`font-black font-mono ${m.score >= PASS_TARGET ? 'text-emerald-600' : 'text-rose-600'
-                                                        }`}
-                                                >
-                                                    {m.score}%
-                                                </div>
-                                                <div
-                                                    className={`text-[10px] font-mono font-bold ${delta < 0 ? 'text-rose-500' : 'text-amber-500'
-                                                        }`}
-                                                >
-                                                    {delta > 0 ? `+${delta}` : delta} Stars
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    // DRILL INSPECTION VIEW
-    if (selectedMatch) {
-        const passed = selectedMatch.score >= PASS_TARGET;
-        const matchStarDelta = selectedMatch.starDelta ?? selectedMatch.starsEarned;
-
-        return (
-            <div className="game-fit text-slate-800">
-                <div className="flex items-center justify-between shrink-0">
-                    <button
-                        type="button"
-                        onClick={() => setSelectedMatch(null)}
-                        className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-200 px-3.5 py-2 rounded-xl hover:border-blue-400 transition"
-                    >
-                        <ArrowLeft className="w-4 h-4" /> Back
-                    </button>
-                    <span className="font-mono text-xs text-slate-400">{selectedMatch.id}</span>
-                </div>
-
-                <div
-                    className={`game-fit-body ${passed ? 'game-card-sys' : 'game-card-alert'
-                        } rounded-2xl p-5 flex flex-col gap-4`}
-                >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-                        <div className="min-w-0">
-                            <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-md border border-blue-200">
-                                {selectedMatch.topic}
-                            </span>
-                            <h1 className="text-xl font-black text-slate-900 mt-2">{selectedMatch.subtopic}</h1>
-                            <p className="text-xs text-slate-500 mt-0.5">
-                                {selectedMatch.format} • {selectedMatch.date}
-                                {selectedMatch.fileName ? ` • ${selectedMatch.fileName}` : ''}
-                            </p>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 bg-amber-50/70 px-4 py-2 rounded-xl border border-amber-200 self-start">
-                            {[1, 2, 3].map((s) => (
-                                <Star
-                                    key={s}
-                                    className={`w-5 h-5 ${s <= selectedMatch.starsEarned
-                                        ? 'text-amber-500 fill-amber-500'
-                                        : 'text-slate-300'
-                                        }`}
-                                />
-                            ))}
-                            <span
-                                className={`ml-1 text-xs font-mono font-black ${matchStarDelta < 0 ? 'text-rose-600' : 'text-amber-800'
-                                    }`}
-                            >
-                                {matchStarDelta > 0 ? `+${matchStarDelta}` : matchStarDelta}
-                            </span>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-3 text-center">
-                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                            <span className="text-[10px] uppercase font-bold text-slate-400">Score</span>
-                            <div className="text-2xl font-black font-mono text-slate-900">
-                                {selectedMatch.score}%
-                            </div>
-                            <span className="text-xs font-mono text-slate-500">
-                                {selectedMatch.correct}/{selectedMatch.total}
-                            </span>
-                        </div>
-                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                            <span className="text-[10px] uppercase font-bold text-slate-400">Status</span>
-                            <div className={`text-lg font-black ${passed ? 'text-emerald-600' : 'text-rose-600'}`}>
-                                {passed ? 'Passed' : 'Weak (<60%)'}
-                            </div>
-                            <span className="text-xs text-slate-500">Target: {PASS_TARGET}%</span>
-                        </div>
-                        <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                            <span className="text-[10px] uppercase font-bold text-slate-400">Time</span>
-                            <div className="text-2xl font-black font-mono text-slate-900">
-                                {selectedMatch.timeSpent}
-                            </div>
-                            <span className="text-xs text-slate-500">Duration</span>
-                        </div>
-                    </div>
-
-                    <div className="p-3 bg-blue-50/60 border border-blue-200 rounded-xl text-xs text-slate-700">
-                        <strong className="text-blue-900 block mb-0.5">Note:</strong>
-                        {selectedMatch.note}
-                    </div>
-
-                    <div className="flex flex-wrap items-center justify-between gap-3 pt-3 mt-auto border-t border-slate-100">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                if (onDeleteDrillFile) onDeleteDrillFile(selectedMatch.id);
-                                setSelectedMatch(null);
-                            }}
-                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold transition"
-                        >
-                            <Trash2 className="w-3.5 h-3.5" /> Delete
-                        </button>
-
-                        <div className="flex items-center gap-2.5">
-                            <button
-                                type="button"
-                                onClick={() => setSelectedMatch(null)}
-                                className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-bold"
-                            >
-                                Close
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    const fileToRedo = selectedMatch;
-                                    setSelectedMatch(null);
-                                    if (onReplayDrillFile) onReplayDrillFile(fileToRedo);
-                                }}
-                                className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition"
-                            >
-                                <Play className="w-3.5 h-3.5 fill-current" /> Redo Drill
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
+    const handleDeleteArchive = (season) => {
+        if (!window.confirm(`Permanently delete archived season "${season.name}"?`)) return;
+        if (onDeleteArchivedSeason) onDeleteArchivedSeason(season.id);
+    };
 
     return (
         <div className="game-fit text-slate-800">
-            <div className="flex items-center justify-between gap-3 shrink-0">
-                <div>
+            {/* ===== HEADER WITH HIGH-VISIBILITY SEASON BADGE ===== */}
+            <div className="flex flex-wrap items-center justify-between gap-2.5 shrink-0">
+                <div className="flex items-center gap-3 flex-wrap min-w-0">
                     <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
-                        Season Report {currentSeason ? `— ${currentSeason.name}` : ''}
+                        Progress & Rank Report
                     </h1>
-                    <p className="text-xs text-slate-500">Rank ladder, score trend, and archived seasons</p>
-                </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                    <button
-                        type="button"
-                        onClick={() => onNavigate('generator')}
-                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold transition"
-                    >
-                        <Swords className="w-4 h-4" />
-                        <span className="hidden sm:inline">New Drill</span>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => window.print()}
-                        className="flex items-center gap-2 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 px-3.5 py-2 rounded-xl text-xs font-bold transition"
-                    >
-                        <Download className="w-4 h-4 text-slate-400" />
-                        <span className="hidden sm:inline">PDF</span>
-                    </button>
-                </div>
-            </div>
-
-            {/* USER CONTENT: Filter & View Switch */}
-            <div className="game-card-user rounded-2xl px-3 py-2 flex flex-wrap items-center justify-between gap-2 shrink-0">
-                <div className="flex flex-wrap items-center gap-2">
-                    {view !== 'seasons' ? (
-                        <>
-                            <Filter className="w-4 h-4 text-[#D8B878]" />
-                            <select
-                                value={selectedTopic}
-                                onChange={(e) => {
-                                    setSelectedTopic(e.target.value);
-                                    setSelectedSubtopic('All');
-                                }}
-                                className="text-xs font-semibold border rounded-xl px-2.5 py-1.5 focus:outline-none max-w-[150px]"
-                            >
-                                {topics.map((t) => (
-                                    <option key={t} value={t}>
-                                        {t === 'All' ? 'All Subjects' : t}
-                                    </option>
-                                ))}
-                            </select>
-
-                            <select
-                                value={selectedSubtopic}
-                                onChange={(e) => setSelectedSubtopic(e.target.value)}
-                                className="text-xs font-semibold border rounded-xl px-2.5 py-1.5 focus:outline-none max-w-[150px]"
-                            >
-                                {subtopics.map((st) => (
-                                    <option key={st} value={st}>
-                                        {st === 'All' ? 'All Subtopics' : st}
-                                    </option>
-                                ))}
-                            </select>
-
-                            {(selectedTopic !== 'All' || selectedSubtopic !== 'All') && (
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setSelectedTopic('All');
-                                        setSelectedSubtopic('All');
-                                    }}
-                                    className="inline-flex items-center gap-1 text-xs font-bold text-[#D8B878] hover:underline px-2"
-                                >
-                                    <RotateCcw className="w-3.5 h-3.5" /> Reset
-                                </button>
-                            )}
-                        </>
-                    ) : (
-                        <span className="text-xs font-bold text-[#D8B878] px-2 flex items-center gap-1.5">
-                            <FolderArchive className="w-4 h-4" /> Archived Season Vault
-                        </span>
+                    {currentSeason && (
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1E3F8A]/90 border border-[#D8B878]/80 shadow-sm">
+                            <Calendar className="w-3.5 h-3.5 text-[#F5D78E] shrink-0" />
+                            <span className="text-xs font-extrabold text-[#FAF6EE]">
+                                {currentSeason.name}
+                            </span>
+                            <span className="text-[11px] font-mono font-bold text-[#F5D78E]">
+                                ({formatSeasonDuration(currentSeason)})
+                            </span>
+                        </div>
                     )}
                 </div>
 
-                <div className="inline-flex rounded-xl bg-slate-50 border border-slate-200 p-0.5">
+                {/* View Mode Switcher */}
+                <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[#0D1F44] border border-[#D8B878]/35 shrink-0">
                     <button
                         type="button"
-                        onClick={() => setView('overview')}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${view === 'overview' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-800'
+                        onClick={() => setViewMode('current')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 transition ${viewMode === 'current'
+                                ? 'bg-blue-600 text-white shadow-sm'
+                                : 'text-[#A9B8D6] hover:text-white'
                             }`}
                     >
-                        <LayoutDashboard className="w-3.5 h-3.5" /> Overview
+                        <BarChart3 className="w-3.5 h-3.5" />
+                        <span>Current Season</span>
                     </button>
+
                     <button
                         type="button"
-                        onClick={() => setView('history')}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${view === 'history' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-800'
+                        onClick={() => setViewMode('archived')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 transition ${viewMode === 'archived'
+                                ? 'bg-blue-600 text-white shadow-sm'
+                                : 'text-[#A9B8D6] hover:text-white'
                             }`}
                     >
-                        <History className="w-3.5 h-3.5" /> History ({filteredMatches.length})
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setView('seasons')}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${view === 'seasons' ? 'bg-blue-600 text-white' : 'text-slate-500 hover:text-slate-800'
-                            }`}
-                    >
-                        <FolderArchive className="w-3.5 h-3.5" /> Past Seasons ({archivedSeasons.length})
+                        <FolderArchive className="w-3.5 h-3.5" />
+                        <span>Archives ({archivedSeasons.length})</span>
                     </button>
                 </div>
             </div>
 
-            {/* VIEW 1: OVERVIEW */}
-            {view === 'overview' && (
-                <div className="game-fit-body grid gap-3 lg:grid-cols-12 lg:grid-rows-[minmax(0,1fr)] content-start">
-                    {/* SYSTEM INFO: Rank Card & Ladder */}
-                    <div className="lg:col-span-5 game-card-sys rounded-2xl p-4 flex flex-col gap-3 min-h-0">
-                        <div className="flex items-center gap-3">
-                            <RankCrest tierName={rankInfo.currentTier.name} size="lg" />
-                            <div className="min-w-0">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
-                                    Current Standing
+            {/* ============================================================
+          VIEW 1: CURRENT SEASON REPORT
+         ============================================================ */}
+            {viewMode === 'current' && (
+                <>
+                    {/* 4-Card KPI Strip (Consistent with Dashboard Screenshot) */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 shrink-0">
+                        <div className="game-card-sys px-4 py-3 rounded-2xl flex items-center justify-between">
+                            <div>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                                    Current Stars
                                 </span>
-                                <h2 className="text-xl font-black text-slate-900 mt-1">
-                                    {rankInfo.currentTier.name}
-                                </h2>
-                                <p className="text-[11px] text-slate-500">
-                                    {rankInfo.totalStars} Stars •{' '}
-                                    {rankInfo.nextTier
-                                        ? `${rankInfo.starsNeeded - rankInfo.starsInTier} to ${rankInfo.nextTier.name}`
-                                        : 'Max Rank'}
-                                </p>
+                                <div className="text-2xl font-black font-mono text-[#D8B878] mt-0.5">
+                                    {rankInfo?.totalStars ?? 0} ★
+                                </div>
                             </div>
+                            <Star className="w-5 h-5 text-[#D8B878] fill-[#D8B878] shrink-0" />
                         </div>
 
-                        {/* Dynamic Tier Progress Bar */}
-                        <div className="bg-slate-50 border border-slate-200/80 px-3 py-2.5 rounded-xl space-y-1.5">
-                            <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                                <span>
-                                    {rankInfo.nextTier ? `Progress to ${rankInfo.nextTier.name}` : 'Mythic Tier (∞)'}
+                        <div className="game-card-sys px-4 py-3 rounded-2xl flex items-center justify-between">
+                            <div>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                                    Drills Played
                                 </span>
-                                <span className="font-mono text-[#D8B878]">
-                                    {rankInfo.nextTier
-                                        ? `${rankInfo.starsInTier} / ${rankInfo.starsNeeded} ★`
-                                        : `${rankInfo.totalStars} ★`}
-                                </span>
+                                <div className="text-2xl font-black font-mono text-slate-900 mt-0.5">
+                                    {kpis.total}
+                                </div>
                             </div>
-                            <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
-                                <div
-                                    className="h-full rounded-full bg-gradient-to-r from-[#F5D78E] to-[#D8B878] transition-all duration-300"
-                                    style={{ width: `${rankInfo.progressPct ?? 0}%` }}
-                                />
-                            </div>
+                            <Swords className="w-5 h-5 text-blue-500 shrink-0" />
                         </div>
 
-                        <div className="min-h-0">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2">
-                                Rank Ladder
-                            </span>
-                            <div className="grid grid-cols-4 gap-2">
-                                {rankInfo.allTiers.map((tier) => {
-                                    const isCurrent = tier.name === rankInfo.currentTier.name;
-                                    const isUnlocked = rankInfo.totalStars >= tier.min;
-                                    return (
-                                        <div
-                                            key={tier.name}
-                                            className={`p-1.5 rounded-xl border flex flex-col items-center text-center transition ${isCurrent
-                                                ? 'bg-blue-50/60 border-[#D8B878] ring-2 ring-blue-500/20'
-                                                : isUnlocked
-                                                    ? 'bg-white border-slate-200'
-                                                    : 'bg-slate-50 border-slate-200/60 opacity-45'
-                                                }`}
-                                        >
-                                            <RankCrest tierName={tier.name} size="sm" />
-                                            <span className="text-[10px] font-bold text-slate-800 leading-tight">
-                                                {tier.name}
-                                            </span>
-                                            <span className="text-[9px] font-mono font-semibold text-slate-400">
-                                                {tier.min}+
-                                            </span>
-                                        </div>
-                                    );
-                                })}
+                        <div className="game-card-sys px-4 py-3 rounded-2xl flex items-center justify-between">
+                            <div>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                                    Avg Accuracy
+                                </span>
+                                <div className="text-2xl font-black font-mono text-emerald-500 mt-0.5">
+                                    {kpis.avgScore}%
+                                </div>
                             </div>
+                            <Target className="w-5 h-5 text-emerald-500 shrink-0" />
+                        </div>
+
+                        <div className="game-card-sys px-4 py-3 rounded-2xl flex items-center justify-between">
+                            <div>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                                    Weak Topics
+                                </span>
+                                <div className="text-2xl font-black font-mono text-rose-500 mt-0.5">
+                                    {kpis.weakCount}
+                                </div>
+                            </div>
+                            <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0" />
                         </div>
                     </div>
 
-                    {/* SYSTEM INFO: Hover-Tooltip KPIs + Chart */}
-                    <div className="lg:col-span-7 flex flex-col gap-3 min-h-0">
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 shrink-0">
-                            {kpiCards.map((kpi) => (
-                                <div
-                                    key={kpi.label}
-                                    className="relative group game-card-sys px-3 py-2.5 rounded-2xl cursor-help"
-                                >
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-[10px] font-bold uppercase text-slate-400">
-                                            {kpi.label}
-                                        </span>
-                                        <Info className="w-3 h-3 text-slate-500 group-hover:text-[#D8B878] transition" />
-                                    </div>
-                                    <div className={`text-xl font-black font-mono ${kpi.valueClass}`}>
-                                        {kpi.value}
-                                    </div>
-
-                                    {/* Instant Hover Tooltip */}
-                                    <div className="pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 absolute left-1/2 -translate-x-1/2 top-full mt-2 z-30 w-44 p-2.5 rounded-xl bg-[#09152E] border border-[#D8B878]/60 shadow-xl text-[11px] font-medium text-[#FAF6EE] leading-snug text-center">
-                                        {kpi.desc}
+                    {/* Main 2-Column Body */}
+                    <div className="game-fit-body grid grid-cols-1 lg:grid-cols-12 gap-3 min-h-0">
+                        {/* LEFT (7 COLS): SUBJECT PERFORMANCE CHART + RANK SUMMARY BAR */}
+                        <div className="lg:col-span-7 game-card-sys rounded-2xl p-4 flex flex-col gap-3 min-h-0 overflow-hidden">
+                            <div className="flex items-center justify-between gap-2 shrink-0">
+                                <div className="flex items-center gap-2.5">
+                                    <RankCrest tierName={rankInfo?.currentTier?.name || 'Warrior'} size="sm" />
+                                    <div>
+                                        <div className="text-xs font-black uppercase tracking-wider text-[#D8B878]">
+                                            Subject Mastery Breakdown
+                                        </div>
+                                        <div className="text-[11px] text-slate-400">
+                                            {rankInfo?.currentTier?.name || 'Warrior'} Division • Pass Rate:{' '}
+                                            <strong className="text-emerald-400">{kpis.passRate}%</strong>
+                                        </div>
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-
-                        <div className="flex-1 min-h-[220px] lg:min-h-0 game-card-sys p-4 rounded-2xl flex flex-col gap-2">
-                            <div className="flex items-center justify-between gap-2 shrink-0">
-                                <h2 className="text-xs font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                                    <TrendingUp className="w-4 h-4 text-blue-600" /> Score Trend
-                                </h2>
-                                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md">
-                                    Pass: {PASS_TARGET}%
+                                <span className="text-[10px] font-mono font-bold text-[#F5D78E] px-2.5 py-1 rounded-lg bg-[#D8B878]/15 border border-[#D8B878]/40">
+                                    Target: 60%
                                 </span>
                             </div>
 
-                            <div className="flex-1 min-h-0 w-full">
-                                {chronological.length > 0 ? (
-                                    <Line data={improvementChartData} options={improvementChartOptions} />
-                                ) : (
-                                    <div className="h-full flex items-center justify-center text-xs text-slate-400">
-                                        No drills recorded yet in this season.
+                            {subjectStats.length === 0 ? (
+                                <div className="flex-1 flex flex-col items-center justify-center text-center gap-2">
+                                    <BarChart3 className="w-9 h-9 text-slate-400" />
+                                    <p className="text-xs text-slate-500">
+                                        Complete at least one drill to unlock subject accuracy analytics.
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={() => onNavigate('generator')}
+                                        className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition"
+                                    >
+                                        Start First Drill
+                                    </button>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="flex-1 min-h-0 relative">
+                                        <Bar data={chartData} options={chartOptions} />
                                     </div>
-                                )}
+
+                                    {/* Subject Pills Summary */}
+                                    <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100/15 shrink-0">
+                                        {subjectStats.map((s) => (
+                                            <span
+                                                key={s.subject}
+                                                className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border ${s.avg >= 60
+                                                        ? 'bg-emerald-500/10 border-emerald-400/35 text-emerald-300'
+                                                        : 'bg-rose-500/15 border-rose-400/40 text-rose-300'
+                                                    }`}
+                                            >
+                                                {s.subject}: <strong className="font-mono">{s.avg}%</strong> ({s.count})
+                                            </span>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        {/* RIGHT (5 COLS): DRILL RECORDS & WEAK RADAR WITH FILTER */}
+                        <div className="lg:col-span-5 game-card-user rounded-2xl p-4 flex flex-col gap-2.5 min-h-0 overflow-hidden">
+                            <div className="flex items-center justify-between border-b border-slate-100/15 pb-2 shrink-0 gap-2">
+                                <span className="text-xs font-black uppercase tracking-wider text-[#D8B878]">
+                                    Battle Records
+                                </span>
+
+                                <div className="flex items-center gap-1 p-0.5 rounded-lg bg-[#09152E] border border-white/10">
+                                    <button
+                                        type="button"
+                                        onClick={() => setHistoryFilter('all')}
+                                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition ${historyFilter === 'all'
+                                                ? 'bg-blue-600 text-white'
+                                                : 'text-[#A9B8D6] hover:text-white'
+                                            }`}
+                                    >
+                                        All ({matchHistory.length})
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setHistoryFilter('weak')}
+                                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition ${historyFilter === 'weak'
+                                                ? 'bg-rose-600 text-white'
+                                                : 'text-[#A9B8D6] hover:text-white'
+                                            }`}
+                                    >
+                                        Weak ({kpis.weakCount})
+                                    </button>
+                                </div>
                             </div>
+
+                            {filteredDrills.length === 0 ? (
+                                <div className="flex-1 flex flex-col items-center justify-center text-center gap-1.5 text-xs text-slate-400">
+                                    <CheckCircle2 className="w-7 h-7 text-emerald-500/70" />
+                                    <span>
+                                        {historyFilter === 'weak'
+                                            ? 'No weak topics! Every drill passed.'
+                                            : 'No drills logged this season.'}
+                                    </span>
+                                </div>
+                            ) : (
+                                <div className="game-scroll flex-1 space-y-2 pr-1">
+                                    {filteredDrills.map((m) => {
+                                        const isWeak = m.score < 60;
+                                        return (
+                                            <div
+                                                key={m.id}
+                                                className={`p-3 rounded-xl border flex items-center justify-between gap-2 ${isWeak
+                                                        ? 'bg-rose-500/10 border-rose-400/40'
+                                                        : 'bg-slate-50 border-slate-200'
+                                                    }`}
+                                            >
+                                                <div className="min-w-0">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className="text-xs font-black text-slate-900 truncate">
+                                                            {m.topic}
+                                                        </span>
+                                                        {isWeak && (
+                                                            <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-rose-600 text-white shrink-0">
+                                                                Weak
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-[11px] text-slate-500 truncate mt-0.5">
+                                                        {m.subtopic} • {m.date}
+                                                    </div>
+                                                    <div className="text-[10px] font-mono text-slate-400 mt-0.5">
+                                                        Score:{' '}
+                                                        <strong
+                                                            className={isWeak ? 'text-rose-500' : 'text-emerald-500'}
+                                                        >
+                                                            {m.score}%
+                                                        </strong>{' '}
+                                                        •{' '}
+                                                        <span className="text-[#D8B878] font-bold">
+                                                            {(m.starDelta ?? m.starsEarned) >= 0 ? '+' : ''}
+                                                            {m.starDelta ?? m.starsEarned}★
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-1 shrink-0">
+                                                    {onReplayDrillFile && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => onReplayDrillFile(m)}
+                                                            title="Replay Drill"
+                                                            className="p-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition"
+                                                        >
+                                                            <RotateCcw className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    )}
+                                                    {onDeleteDrillFile && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => onDeleteDrillFile(m.id)}
+                                                            title="Delete Record"
+                                                            className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
                     </div>
-                </div>
+                </>
             )}
 
-            {/* VIEW 2: DRILL HISTORY */}
-            {view === 'history' && (
-                <div className="flex-1 min-h-0 game-card-user rounded-2xl overflow-hidden flex flex-col">
-                    <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between shrink-0">
-                        <span className="text-xs font-black uppercase tracking-wider text-[#D8B878]">
-                            Your Completed Drills
-                        </span>
-                        <span className="text-xs font-mono font-bold text-slate-400">
-                            {filteredMatches.length} Total
-                        </span>
-                    </div>
-
-                    <div className="game-scroll flex-1">
-                        <table className="w-full text-left border-collapse text-xs">
-                            <thead className="sticky top-0 z-10">
-                                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase">
-                                    <th className="py-3 px-4">Date</th>
-                                    <th className="py-3 px-4">Subject & Subtopic</th>
-                                    <th className="py-3 px-4">Format</th>
-                                    <th className="py-3 px-4 text-center">Score</th>
-                                    <th className="py-3 px-4 text-center">Stars</th>
-                                    <th className="py-3 px-4 text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {filteredMatches.map((match) => {
-                                    const passed = match.score >= PASS_TARGET;
-                                    const delta = match.starDelta ?? match.starsEarned;
-
-                                    return (
-                                        <tr
-                                            key={match.id}
-                                            onClick={() => setSelectedMatch(match)}
-                                            className="hover:bg-blue-50/40 transition cursor-pointer"
-                                        >
-                                            <td className="py-3 px-4 whitespace-nowrap text-slate-500">
-                                                {match.date}
-                                                <div className="text-[10px] font-mono text-slate-400">
-                                                    {match.timeSpent}
-                                                </div>
-                                            </td>
-                                            <td className="py-3 px-4">
-                                                <div className="font-bold text-slate-900 flex items-center gap-2">
-                                                    <span>{match.subtopic}</span>
-                                                    {!passed && (
-                                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-50 text-rose-600 border border-rose-200">
-                                                            Weak
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <div className="text-[11px] text-slate-500">{match.topic}</div>
-                                            </td>
-                                            <td className="py-3 px-4 whitespace-nowrap">
-                                                <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-semibold text-[11px]">
-                                                    {match.format}
-                                                </span>
-                                            </td>
-                                            <td className="py-3 px-4 text-center whitespace-nowrap">
-                                                <span
-                                                    className={`font-black font-mono text-sm ${passed ? 'text-emerald-600' : 'text-rose-600'
-                                                        }`}
-                                                >
-                                                    {match.score}%
-                                                </span>
-                                            </td>
-                                            <td className="py-3 px-4 text-center whitespace-nowrap">
-                                                <div className="inline-flex items-center gap-1">
-                                                    <div className="inline-flex items-center gap-0.5">
-                                                        {[1, 2, 3].map((s) => (
-                                                            <Star
-                                                                key={s}
-                                                                className={`w-3.5 h-3.5 ${s <= match.starsEarned
-                                                                    ? 'text-amber-400 fill-amber-400'
-                                                                    : 'text-slate-200'
-                                                                    }`}
-                                                            />
-                                                        ))}
-                                                    </div>
-                                                    {delta !== match.starsEarned && (
-                                                        <span
-                                                            className={`text-[10px] font-mono font-black ${delta < 0 ? 'text-rose-500' : 'text-amber-500'
-                                                                }`}
-                                                        >
-                                                            ({delta > 0 ? `+${delta}` : delta})
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="py-3 px-4 text-right whitespace-nowrap">
-                                                <div className="inline-flex items-center justify-end gap-1.5">
-                                                    <button
-                                                        type="button"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            if (onReplayDrillFile) onReplayDrillFile(match);
-                                                        }}
-                                                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] transition"
-                                                    >
-                                                        <Play className="w-3 h-3 fill-current" /> Redo
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        title="Inspect"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setSelectedMatch(match);
-                                                        }}
-                                                        className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition"
-                                                    >
-                                                        <Eye className="w-3.5 h-3.5" />
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        title="Delete"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            if (onDeleteDrillFile) onDeleteDrillFile(match.id);
-                                                        }}
-                                                        className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                                                    >
-                                                        <Trash2 className="w-3.5 h-3.5" />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            )}
-
-            {/* VIEW 3: PAST SEASONS ARCHIVE */}
-            {view === 'seasons' && (
-                <div className="flex-1 min-h-0 flex flex-col">
+            {/* ============================================================
+          VIEW 2: ARCHIVED SEASONS VAULT
+         ============================================================ */}
+            {viewMode === 'archived' && (
+                <div className="game-fit-body grid grid-cols-1 lg:grid-cols-12 gap-3 min-h-0">
                     {archivedSeasons.length === 0 ? (
-                        <div className="flex-1 game-card-sys rounded-2xl p-8 text-center flex flex-col items-center justify-center gap-2">
+                        <div className="lg:col-span-12 game-card-sys rounded-2xl flex flex-col items-center justify-center text-center gap-2 p-6">
                             <FolderArchive className="w-10 h-10 text-slate-400" />
-                            <div className="text-sm font-bold text-slate-900">No Archived Seasons Yet</div>
+                            <div className="text-sm font-black text-slate-900">No Archived Seasons Yet</div>
                             <p className="text-xs text-slate-500 max-w-sm">
-                                When you start a new season from the Dashboard, your completed season (with all
-                                subject folders, drills, and final rank) will be stored here.
+                                Start a New Season from your Dashboard to archive your completed semester rank, folders, and drill history here.
                             </p>
                         </div>
                     ) : (
-                        <div className="game-scroll flex-1 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 content-start pr-1">
-                            {archivedSeasons.map((season) => (
-                                <div
-                                    key={season.id}
-                                    onClick={() => setSelectedArchive(season)}
-                                    className="group game-card-user rounded-2xl p-4 cursor-pointer flex flex-col justify-between gap-3 transition"
-                                >
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="flex items-center gap-3 min-w-0">
-                                            <RankCrest tierName={season.finalTier} size="sm" />
-                                            <div className="min-w-0">
-                                                <h3 className="text-sm font-black text-slate-900 group-hover:text-[#D8B878] transition truncate">
-                                                    {season.name}
-                                                </h3>
-                                                <p className="text-[11px] font-mono text-slate-500 flex items-center gap-1">
-                                                    <Calendar className="w-3 h-3" /> {formatSeasonDuration(season)}
-                                                </p>
+                        <>
+                            {/* Left (4 cols): Archived Season Selector */}
+                            <div className="lg:col-span-4 game-card-sys rounded-2xl p-3.5 flex flex-col gap-2 min-h-0 overflow-hidden">
+                                <span className="text-xs font-black uppercase tracking-wider text-slate-400 shrink-0">
+                                    Past Semesters
+                                </span>
+                                <div className="game-scroll flex-1 space-y-2 pr-1">
+                                    {archivedSeasons.map((season) => {
+                                        const active = selectedArchive?.id === season.id;
+                                        return (
+                                            <div
+                                                key={season.id}
+                                                onClick={() => setSelectedArchiveId(season.id)}
+                                                className={`p-3 rounded-xl border cursor-pointer transition flex items-center justify-between gap-2 ${active
+                                                        ? 'bg-[#1E3F8A]/50 border-[#D8B878]'
+                                                        : 'bg-slate-50 border-slate-200 hover:border-blue-400'
+                                                    }`}
+                                            >
+                                                <div className="flex items-center gap-2.5 min-w-0">
+                                                    <RankCrest tierName={season.finalTier || 'Warrior'} size="sm" />
+                                                    <div className="min-w-0">
+                                                        <div className="text-xs font-black text-slate-900 truncate">
+                                                            {season.name}
+                                                        </div>
+                                                        <div className="text-[10px] text-slate-400">
+                                                            Ended {season.endedAt} • {season.finalTier} ({season.finalStars}★)
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDeleteArchive(season);
+                                                    }}
+                                                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 shrink-0"
+                                                    title="Delete Archived Season"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
                                             </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Right (8 cols): Selected Archive Details */}
+                            <div className="lg:col-span-8 game-card-user rounded-2xl p-4 flex flex-col gap-3 min-h-0 overflow-hidden">
+                                {selectedArchive && (
+                                    <>
+                                        <div className="flex items-center justify-between border-b border-slate-100/15 pb-3 shrink-0 flex-wrap gap-2">
+                                            <div className="flex items-center gap-3">
+                                                <RankCrest tierName={selectedArchive.finalTier || 'Warrior'} size="md" />
+                                                <div>
+                                                    <div className="text-base font-black text-slate-900">
+                                                        {selectedArchive.name}
+                                                    </div>
+                                                    <div className="text-xs text-slate-400">
+                                                        Final Rank: <strong className="text-slate-900">{selectedArchive.finalTier}</strong> •{' '}
+                                                        <span className="font-mono text-[#D8B878] font-bold">
+                                                            {selectedArchive.finalStars} ★
+                                                        </span>{' '}
+                                                        • {(selectedArchive.matchHistory || []).length} Drills
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#1E3F8A]/80 border border-[#D8B878]/70 text-[11px] font-mono font-bold text-[#F5D78E]">
+                                                <Calendar className="w-3 h-3" />
+                                                {formatSeasonDuration(selectedArchive)}
+                                            </span>
                                         </div>
 
-                                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-700 shrink-0">
-                                            {season.finalTier} ({season.finalStars} ★)
-                                        </span>
-                                    </div>
+                                        <div className="game-scroll flex-1 space-y-4 pr-1">
+                                            <div>
+                                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1.5">
+                                                    Archived Subject Folders
+                                                </span>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {(selectedArchive.registeredSubjects || []).length === 0 ? (
+                                                        <span className="text-xs text-slate-400">No folders recorded.</span>
+                                                    ) : (
+                                                        selectedArchive.registeredSubjects.map((sub) => (
+                                                            <span
+                                                                key={sub.id}
+                                                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-900"
+                                                            >
+                                                                <Folder className="w-3.5 h-3.5 text-[#D8B878]" />
+                                                                {sub.name}
+                                                            </span>
+                                                        ))
+                                                    )}
+                                                </div>
+                                            </div>
 
-                                    <div className="text-[11px] text-slate-400">
-                                        {season.createdAt} — {season.endedAt} • {season.registeredSubjects.length}{' '}
-                                        Folders • {season.matchHistory.length} Drills
-                                    </div>
-
-                                    <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-[#D8B878]">
-                                        <span className="inline-flex items-center gap-1">
-                                            <Eye className="w-3.5 h-3.5" /> View Archive
-                                        </span>
-                                        <button
-                                            type="button"
-                                            title="Delete Archived Season"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                if (
-                                                    window.confirm(`Permanently delete archived season "${season.name}"?`)
-                                                ) {
-                                                    onDeleteArchivedSeason(season.id);
-                                                }
-                                            }}
-                                            className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                                        >
-                                            <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                                            <div>
+                                                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1.5">
+                                                    Archived Drills
+                                                </span>
+                                                <div className="space-y-2">
+                                                    {(selectedArchive.matchHistory || []).length === 0 ? (
+                                                        <span className="text-xs text-slate-400">No drills recorded.</span>
+                                                    ) : (
+                                                        selectedArchive.matchHistory.map((m) => (
+                                                            <div
+                                                                key={m.id}
+                                                                className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs gap-2"
+                                                            >
+                                                                <div className="min-w-0">
+                                                                    <div className="font-black text-slate-900 truncate">
+                                                                        {m.topic}
+                                                                    </div>
+                                                                    <div className="text-[11px] text-slate-500 truncate">
+                                                                        {m.subtopic} • {m.date}
+                                                                    </div>
+                                                                </div>
+                                                                <span className="font-mono font-black text-[#D8B878] shrink-0">
+                                                                    {m.score}% ({(m.starDelta ?? m.starsEarned) >= 0 ? '+' : ''}
+                                                                    {m.starDelta ?? m.starsEarned}★)
+                                                                </span>
+                                                            </div>
+                                                        ))
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </>
                     )}
                 </div>
             )}

@@ -9,74 +9,154 @@ import {
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 import {
-    ArrowLeft,
-    ShieldCheck,
+    LayoutDashboard,
     Users,
     Sliders,
     Megaphone,
-    ClipboardList,
-    BarChart3,
-    AlertTriangle,
+    ScrollText,
+    ArrowLeft,
     LogOut,
+    Eye,
+    ShieldCheck,
     Search,
     Ban,
     CheckCircle2,
+    Trash2,
     RotateCcw,
     Save,
-    Trash2,
-    Swords,
-    FolderArchive,
-    Trophy,
     Wrench,
-    Eye
+    AlertTriangle,
+    Star,
+    Swords,
+    Target,
+    UserCheck,
+    ShieldAlert,
+    Sparkles,
+    Download
 } from 'lucide-react';
 import { OfficialLogo, RankCrest, DEFAULT_SYSTEM_CONFIG } from '../App';
+import AnnouncementBanner from './AnnouncementBanner';
 import '../game-fit.css';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
 const ACCOUNTS_STORAGE_KEY = 'academiu_registered_accounts';
-const AUDIT_LOG_KEY = 'academiu_admin_audit_log';
+const AUDIT_LOG_KEY = 'academiu_admin_audit_logs';
 
-const ADMIN_TABS = [
-    { id: 'overview', label: 'Telemetry', icon: BarChart3 },
-    { id: 'users', label: 'Users', icon: Users },
-    { id: 'rules', label: 'Rank & Rules', icon: Sliders },
-    { id: 'broadcast', label: 'Broadcasts', icon: Megaphone },
-    { id: 'audit', label: 'Audit Log', icon: ClipboardList }
-];
+const TIER_BAR_PALETTE = {
+    Warrior: { bg: 'rgba(217, 119, 6, 0.8)', border: '#F59E0B' },
+    Elite: { bg: 'rgba(148, 163, 184, 0.8)', border: '#CBD5E1' },
+    Master: { bg: 'rgba(216, 184, 120, 0.88)', border: '#F5D78E' },
+    Grandmaster: { bg: 'rgba(56, 189, 248, 0.8)', border: '#7DD3FC' },
+    Epic: { bg: 'rgba(16, 185, 129, 0.8)', border: '#34D399' },
+    Legend: { bg: 'rgba(249, 115, 22, 0.82)', border: '#FB923C' },
+    Mythic: { bg: 'rgba(168, 85, 247, 0.84)', border: '#C084FC' }
+};
 
-function resolveTierName(stars, tiers) {
-    let matched = tiers[0]?.name || 'Warrior';
-    for (let i = 0; i < tiers.length; i++) {
-        if (stars >= tiers[i].min) matched = tiers[i].name;
+function loadAccounts() {
+    try {
+        const raw = localStorage.getItem(ACCOUNTS_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : [];
+    } catch {
+        return [];
     }
-    return matched;
+}
+
+function saveAccounts(accounts) {
+    localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(accounts));
+}
+
+function loadUserProgress(email) {
+    if (!email) return null;
+    try {
+        const raw = localStorage.getItem(`academiu_progress_${email}`);
+        return raw ? JSON.parse(raw) : null;
+    } catch {
+        return null;
+    }
+}
+
+function loadAuditLogs() {
+    try {
+        const raw = localStorage.getItem(AUDIT_LOG_KEY);
+        return raw ? JSON.parse(raw) : [];
+    } catch {
+        return [];
+    }
+}
+
+function resolveTierName(stars, tiers = DEFAULT_SYSTEM_CONFIG.tiers) {
+    let current = tiers[0]?.name || 'Warrior';
+    for (let i = 0; i < tiers.length; i++) {
+        if (stars >= Number(tiers[i].min)) {
+            current = tiers[i].name;
+        }
+    }
+    return current;
 }
 
 export default function AdminPanel({
     currentUser,
-    systemConfig,
+    systemConfig = DEFAULT_SYSTEM_CONFIG,
     onUpdateConfig,
     onSwitchToStudent,
     onLogout
 }) {
-    const [activeTab, setActiveTab] = useState('overview');
+    const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'users' | 'rules' | 'broadcast' | 'audit'
     const [tabHistory, setTabHistory] = useState([]);
-    const [usersData, setUsersData] = useState([]);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [statusFilter, setStatusFilter] = useState('All');
 
-    // Editable Rule Engine Draft
-    const [configDraft, setConfigDraft] = useState(systemConfig);
-    const [saveFeedback, setSaveFeedback] = useState('');
+    const [accounts, setAccounts] = useState(loadAccounts);
+    const [auditLogs, setAuditLogs] = useState(loadAuditLogs);
 
-    // Audit Log
-    const [auditLogs, setAuditLogs] = useState([]);
+    // Editable draft for Rules & Broadcasts
+    const [configDraft, setConfigDraft] = useState(() => ({
+        ...DEFAULT_SYSTEM_CONFIG,
+        ...systemConfig,
+        tiers: (systemConfig?.tiers || DEFAULT_SYSTEM_CONFIG.tiers).map((t) => ({ ...t }))
+    }));
 
-    const canGoBack = tabHistory.length > 0 || activeTab !== 'overview';
+    // Filters & Feedback
+    const [userSearch, setUserSearch] = useState('');
+    const [roleFilter, setRoleFilter] = useState('all'); // 'all' | 'student' | 'admin' | 'suspended'
+    const [auditFilter, setAuditFilter] = useState('');
+    const [toast, setToast] = useState('');
 
-    const navigateToTab = (nextTab) => {
+    useEffect(() => {
+        setConfigDraft({
+            ...DEFAULT_SYSTEM_CONFIG,
+            ...systemConfig,
+            tiers: (systemConfig?.tiers || DEFAULT_SYSTEM_CONFIG.tiers).map((t) => ({ ...t }))
+        });
+    }, [systemConfig]);
+
+    const showToast = (msg) => {
+        setToast(msg);
+        setTimeout(() => setToast(''), 2800);
+    };
+
+    const appendAudit = (action, details, severity = 'info') => {
+        const entry = {
+            id: `LOG-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            timestamp: new Date().toLocaleString('en-GB', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            }),
+            adminEmail: currentUser?.email || 'admin@academiu.com',
+            action,
+            details,
+            severity
+        };
+        const updated = [entry, ...auditLogs].slice(0, 150);
+        setAuditLogs(updated);
+        localStorage.setItem(AUDIT_LOG_KEY, JSON.stringify(updated));
+    };
+
+    // Navigation History
+    const navigateTab = (nextTab) => {
         if (nextTab === activeTab) return;
         setTabHistory((prev) => [...prev, activeTab]);
         setActiveTab(nextTab);
@@ -84,323 +164,403 @@ export default function AdminPanel({
 
     const handleGoBack = () => {
         if (tabHistory.length > 0) {
-            const previousTab = tabHistory[tabHistory.length - 1];
+            const prevTab = tabHistory[tabHistory.length - 1];
             setTabHistory((prev) => prev.slice(0, -1));
-            setActiveTab(previousTab);
+            setActiveTab(prevTab);
         } else if (activeTab !== 'overview') {
             setActiveTab('overview');
         }
     };
 
-    useEffect(() => {
-        setConfigDraft(systemConfig);
-    }, [systemConfig]);
+    const canGoBack = tabHistory.length > 0 || activeTab !== 'overview';
 
-    const loadAuditLogs = () => {
-        try {
-            const raw = localStorage.getItem(AUDIT_LOG_KEY);
-            setAuditLogs(raw ? JSON.parse(raw) : []);
-        } catch {
-            setAuditLogs([]);
-        }
-    };
-
-    const appendAuditLog = (action, target, details = '') => {
-        const entry = {
-            id: `LOG-${Date.now()}`,
-            timestamp: new Date().toLocaleString('en-GB', {
-                day: '2-digit',
-                month: 'short',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            }),
-            adminEmail: currentUser?.email || 'admin@academiu.com',
-            action,
-            target,
-            details
-        };
-        setAuditLogs((prev) => {
-            const updated = [entry, ...prev].slice(0, 100);
-            localStorage.setItem(AUDIT_LOG_KEY, JSON.stringify(updated));
-            return updated;
-        });
-    };
-
-    const loadUsersFromStorage = () => {
-        let registered = [];
-        try {
-            const raw = localStorage.getItem(ACCOUNTS_STORAGE_KEY);
-            registered = raw ? JSON.parse(raw) : [];
-        } catch {
-            registered = [];
-        }
-
-        // Merge accounts with their stored progress data
-        const accountMap = new Map();
-        registered.forEach((acc) => {
-            const emailKey = (acc.email || '').toLowerCase();
-            if (!emailKey) return;
-            accountMap.set(emailKey, {
-                name: acc.name || emailKey.split('@')[0],
-                email: emailKey,
-                provider: acc.provider || 'email',
-                role: acc.role || (emailKey === 'admin@academiu.com' ? 'admin' : 'student'),
-                status: acc.status || 'active'
-            });
-        });
-
-        // Also detect any email that has progress saved in localStorage
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith('academiu_progress_')) {
-                const emailKey = key.replace('academiu_progress_', '').toLowerCase();
-                if (!accountMap.has(emailKey)) {
-                    accountMap.set(emailKey, {
-                        name: emailKey.split('@')[0],
-                        email: emailKey,
-                        provider: 'email',
-                        role: emailKey === 'admin@academiu.com' ? 'admin' : 'student',
-                        status: 'active'
-                    });
-                }
-            }
-        }
-
-        const enriched = Array.from(accountMap.values()).map((acc) => {
-            let progress = null;
-            try {
-                const pRaw = localStorage.getItem(`academiu_progress_${acc.email}`);
-                progress = pRaw ? JSON.parse(pRaw) : null;
-            } catch {
-                progress = null;
-            }
-
-            const matchHistory = progress?.matchHistory || [];
-            const registeredSubjects = progress?.registeredSubjects || [];
-            const archivedSeasons = progress?.archivedSeasons || [];
-            const totalStars = progress?.totalStars ?? 0;
-            const currentSeason = progress?.currentSeason || null;
-
+    // Enrich accounts with stored progress telemetry
+    const enrichedUsers = useMemo(() => {
+        const activeTiers = systemConfig?.tiers || DEFAULT_SYSTEM_CONFIG.tiers;
+        return accounts.map((acc) => {
+            const progress = loadUserProgress(acc.email);
+            const stars = progress?.totalStars ?? 0;
+            const history = progress?.matchHistory ?? [];
+            const folders = progress?.registeredSubjects ?? [];
             const avgScore =
-                matchHistory.length > 0
-                    ? Math.round(matchHistory.reduce((s, m) => s + m.score, 0) / matchHistory.length)
-                    : null;
-
-            const passedCount = matchHistory.filter(
-                (m) => m.score >= systemConfig.passTarget
-            ).length;
+                history.length > 0
+                    ? Math.round(history.reduce((s, m) => s + (m.score || 0), 0) / history.length)
+                    : 0;
+            const tier = resolveTierName(stars, activeTiers);
 
             return {
                 ...acc,
-                totalStars,
-                tierName: resolveTierName(totalStars, systemConfig.tiers),
-                currentSeasonName: currentSeason?.name || 'Not Started',
-                hasActiveSeason: Boolean(currentSeason),
-                archivedCount: archivedSeasons.length,
-                folderCount: registeredSubjects.length,
-                drillCount: matchHistory.length,
-                passedCount,
-                avgScore
+                status: acc.status || 'active',
+                role: acc.role || 'student',
+                stars,
+                tier,
+                drillCount: history.length,
+                folderCount: folders.length,
+                avgScore,
+                seasonName: progress?.currentSeason?.name || 'Not Started'
             };
         });
+    }, [accounts, systemConfig]);
 
-        setUsersData(enriched);
-    };
-
-    useEffect(() => {
-        loadUsersFromStorage();
-        loadAuditLogs();
-    }, [systemConfig]);
-
-    // Platform-wide KPIs
+    // Platform-wide Telemetry
     const telemetry = useMemo(() => {
-        const totalUsers = usersData.length;
-        const suspendedUsers = usersData.filter((u) => u.status === 'suspended').length;
-        const activeSeasons = usersData.filter((u) => u.hasActiveSeason).length;
-        const totalArchived = usersData.reduce((s, u) => s + u.archivedCount, 0);
-        const totalDrills = usersData.reduce((s, u) => s + u.drillCount, 0);
-        const totalPassed = usersData.reduce((s, u) => s + u.passedCount, 0);
-        const passRate = totalDrills > 0 ? Math.round((totalPassed / totalDrills) * 100) : 0;
+        const totalUsers = enrichedUsers.length;
+        const students = enrichedUsers.filter((u) => u.role !== 'admin');
+        const admins = enrichedUsers.filter((u) => u.role === 'admin');
+        const suspended = enrichedUsers.filter((u) => u.status === 'suspended');
+        const totalDrills = enrichedUsers.reduce((sum, u) => sum + u.drillCount, 0);
 
-        const tierCounts = systemConfig.tiers.map((tier) => ({
-            name: tier.name,
-            count: usersData.filter((u) => u.tierName === tier.name).length
+        const activePlayers = enrichedUsers.filter((u) => u.drillCount > 0);
+        const platformAvg =
+            activePlayers.length > 0
+                ? Math.round(
+                    activePlayers.reduce((sum, u) => sum + u.avgScore, 0) / activePlayers.length
+                )
+                : 0;
+
+        const tierCounts = (systemConfig?.tiers || DEFAULT_SYSTEM_CONFIG.tiers).map((t) => ({
+            name: t.name,
+            count: students.filter((s) => s.tier === t.name).length
         }));
 
         return {
             totalUsers,
-            suspendedUsers,
-            activeSeasons,
-            totalArchived,
+            studentCount: students.length,
+            adminCount: admins.length,
+            suspendedCount: suspended.length,
             totalDrills,
-            passRate,
+            platformAvg,
             tierCounts
         };
-    }, [usersData, systemConfig.tiers]);
+    }, [enrichedUsers, systemConfig]);
 
-    const rankDistributionData = {
-        labels: telemetry.tierCounts.map((t) => t.name),
-        datasets: [
-            {
-                label: 'Players',
-                data: telemetry.tierCounts.map((t) => t.count),
-                backgroundColor: 'rgba(216, 184, 120, 0.75)',
-                borderColor: '#F5D78E',
-                borderWidth: 1.5,
-                borderRadius: 8
-            }
-        ]
-    };
+    // Bar Chart Data & Options for Student Rank Distribution
+    const rankChartData = useMemo(() => {
+        return {
+            labels: telemetry.tierCounts.map((t) => t.name),
+            datasets: [
+                {
+                    label: 'Students',
+                    data: telemetry.tierCounts.map((t) => t.count),
+                    backgroundColor: telemetry.tierCounts.map(
+                        (t) => TIER_BAR_PALETTE[t.name]?.bg || 'rgba(216, 184, 120, 0.82)'
+                    ),
+                    borderColor: telemetry.tierCounts.map(
+                        (t) => TIER_BAR_PALETTE[t.name]?.border || '#F5D78E'
+                    ),
+                    borderWidth: 1.5,
+                    borderRadius: 8,
+                    maxBarThickness: 46
+                }
+            ]
+        };
+    }, [telemetry.tierCounts]);
 
-    const rankDistributionOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-            y: {
-                beginAtZero: true,
-                ticks: { stepSize: 1, color: '#A9B8D6', font: { size: 11 } },
-                grid: { color: 'rgba(255, 255, 255, 0.08)' }
+    const rankChartOptions = useMemo(() => {
+        const maxCount = Math.max(0, ...telemetry.tierCounts.map((t) => t.count));
+        return {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    suggestedMax: Math.max(5, maxCount + 1),
+                    ticks: {
+                        precision: 0,
+                        stepSize: maxCount <= 10 ? 1 : undefined,
+                        color: '#94A3B8',
+                        font: { size: 11, weight: '600' }
+                    },
+                    grid: {
+                        color: 'rgba(148, 163, 184, 0.14)'
+                    }
+                },
+                x: {
+                    ticks: {
+                        color: '#E2E8F0',
+                        font: { size: 11, weight: '700' }
+                    },
+                    grid: {
+                        display: false
+                    }
+                }
             },
-            x: {
-                ticks: { color: '#D6DEF0', font: { size: 11, weight: '600' } },
-                grid: { display: false }
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: '#09152E',
+                    borderColor: 'rgba(216, 184, 120, 0.5)',
+                    borderWidth: 1,
+                    titleColor: '#F5D78E',
+                    bodyColor: '#FAF6EE',
+                    padding: 10,
+                    callbacks: {
+                        label: (ctx) => {
+                            const count = ctx.parsed.y ?? 0;
+                            const pct =
+                                telemetry.studentCount > 0
+                                    ? Math.round((count / telemetry.studentCount) * 100)
+                                    : 0;
+                            return ` ${count} ${count === 1 ? 'Student' : 'Students'} (${pct}%)`;
+                        }
+                    }
+                }
             }
-        },
-        plugins: {
-            legend: { display: false }
-        }
+        };
+    }, [telemetry.tierCounts, telemetry.studentCount]);
+
+    // Filtered Users
+    const filteredUsers = useMemo(() => {
+        const q = userSearch.trim().toLowerCase();
+        return enrichedUsers.filter((u) => {
+            if (roleFilter === 'student' && u.role !== 'student') return false;
+            if (roleFilter === 'admin' && u.role !== 'admin') return false;
+            if (roleFilter === 'suspended' && u.status !== 'suspended') return false;
+            if (!q) return true;
+            return (
+                (u.name || '').toLowerCase().includes(q) ||
+                (u.email || '').toLowerCase().includes(q) ||
+                (u.tier || '').toLowerCase().includes(q)
+            );
+        });
+    }, [enrichedUsers, userSearch, roleFilter]);
+
+    // Filtered Audit Logs
+    const filteredLogs = useMemo(() => {
+        const q = auditFilter.trim().toLowerCase();
+        if (!q) return auditLogs;
+        return auditLogs.filter(
+            (log) =>
+                log.action.toLowerCase().includes(q) ||
+                log.details.toLowerCase().includes(q) ||
+                log.adminEmail.toLowerCase().includes(q)
+        );
+    }, [auditLogs, auditFilter]);
+
+    // --- USER MODERATION ACTIONS ---
+    const handleToggleSuspend = (target) => {
+        if (target.email.toLowerCase() === currentUser?.email?.toLowerCase()) return;
+        const nextStatus = target.status === 'suspended' ? 'active' : 'suspended';
+        const updated = accounts.map((acc) =>
+            acc.email.toLowerCase() === target.email.toLowerCase()
+                ? { ...acc, status: nextStatus }
+                : acc
+        );
+        setAccounts(updated);
+        saveAccounts(updated);
+        appendAudit(
+            nextStatus === 'suspended' ? 'USER_SUSPENDED' : 'USER_REACTIVATED',
+            `${target.name} (${target.email}) set to ${nextStatus.toUpperCase()}.`,
+            nextStatus === 'suspended' ? 'warn' : 'info'
+        );
+        showToast(`${target.name} is now ${nextStatus}.`);
     };
 
-    const filteredUsers = useMemo(() => {
-        const q = searchQuery.trim().toLowerCase();
-        return usersData.filter((u) => {
-            const matchesSearch =
-                !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
-            const matchesStatus =
-                statusFilter === 'All' ||
-                (statusFilter === 'Active' && u.status === 'active') ||
-                (statusFilter === 'Suspended' && u.status === 'suspended') ||
-                (statusFilter === 'Admins' && u.role === 'admin');
-            return matchesSearch && matchesStatus;
-        });
-    }, [usersData, searchQuery, statusFilter]);
-
-    const updateStoredAccountField = (email, patch, actionLabel) => {
-        if (email === currentUser?.email?.toLowerCase() && patch.status === 'suspended') {
+    const handleToggleRole = (target) => {
+        if (target.email.toLowerCase() === currentUser?.email?.toLowerCase()) return;
+        const nextRole = target.role === 'admin' ? 'student' : 'admin';
+        if (
+            !window.confirm(
+                `Change ${target.name} (${target.email}) role to ${nextRole.toUpperCase()}?`
+            )
+        ) {
             return;
         }
-
-        let registered = [];
-        try {
-            const raw = localStorage.getItem(ACCOUNTS_STORAGE_KEY);
-            registered = raw ? JSON.parse(raw) : [];
-        } catch {
-            registered = [];
-        }
-
-        const exists = registered.some((acc) => acc.email.toLowerCase() === email);
-        let updated;
-        if (exists) {
-            updated = registered.map((acc) =>
-                acc.email.toLowerCase() === email ? { ...acc, ...patch } : acc
-            );
-        } else {
-            const found = usersData.find((u) => u.email === email);
-            updated = [
-                ...registered,
-                {
-                    name: found?.name || email.split('@')[0],
-                    email,
-                    provider: found?.provider || 'email',
-                    role: found?.role || 'student',
-                    status: found?.status || 'active',
-                    ...patch
-                }
-            ];
-        }
-
-        localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(updated));
-        appendAuditLog(actionLabel, email, JSON.stringify(patch));
-        loadUsersFromStorage();
+        const updated = accounts.map((acc) =>
+            acc.email.toLowerCase() === target.email.toLowerCase()
+                ? { ...acc, role: nextRole }
+                : acc
+        );
+        setAccounts(updated);
+        saveAccounts(updated);
+        appendAudit(
+            'ROLE_UPDATED',
+            `${target.email} role changed to ${nextRole.toUpperCase()}.`,
+            'warn'
+        );
+        showToast(`Updated ${target.name} to ${nextRole}.`);
     };
 
-    const handleTierThresholdChange = (tierName, rawValue) => {
-        const numeric = Math.max(0, parseInt(rawValue, 10) || 0);
-        setConfigDraft((prev) => ({
-            ...prev,
-            tiers: prev.tiers.map((t) =>
-                t.name === tierName ? { ...t, min: tierName === 'Warrior' ? 0 : numeric } : t
+    const handleResetProgress = (target) => {
+        if (
+            !window.confirm(
+                `Reset all stars, streaks, folders, and drill history for ${target.name}?`
             )
-        }));
+        ) {
+            return;
+        }
+        localStorage.removeItem(`academiu_progress_${target.email}`);
+        setAccounts([...accounts]);
+        appendAudit(
+            'PROGRESS_RESET',
+            `Cleared season progress and drill vault for ${target.email}.`,
+            'warn'
+        );
+        showToast(`Reset progress for ${target.name}.`);
+    };
+
+    const handleDeleteAccount = (target) => {
+        if (target.email.toLowerCase() === currentUser?.email?.toLowerCase()) return;
+        if (
+            !window.confirm(
+                `Permanently delete account ${target.name} (${target.email}) and all saved data?`
+            )
+        ) {
+            return;
+        }
+        const updated = accounts.filter(
+            (acc) => acc.email.toLowerCase() !== target.email.toLowerCase()
+        );
+        localStorage.removeItem(`academiu_progress_${target.email}`);
+        setAccounts(updated);
+        saveAccounts(updated);
+        appendAudit(
+            'USER_DELETED',
+            `Permanently deleted account ${target.email}.`,
+            'danger'
+        );
+        showToast(`Deleted ${target.email}.`);
+    };
+
+    // --- RULE ENGINE ACTIONS ---
+    const handleTierMinChange = (index, rawVal) => {
+        const num = Math.max(0, Number(rawVal) || 0);
+        setConfigDraft((prev) => {
+            const nextTiers = prev.tiers.map((t, i) =>
+                i === index ? { ...t, min: i === 0 ? 0 : num } : t
+            );
+            return { ...prev, tiers: nextTiers };
+        });
     };
 
     const handleSaveRules = (e) => {
         e.preventDefault();
-        const sortedTiers = [...configDraft.tiers].sort((a, b) => a.min - b.min);
-        const cleanedConfig = {
-            ...configDraft,
+
+        const sortedTiers = configDraft.tiers.map((t, idx) => ({
+            ...t,
+            min: idx === 0 ? 0 : Math.max(1, Number(t.min) || 0)
+        }));
+        for (let i = 1; i < sortedTiers.length; i++) {
+            if (sortedTiers[i].min <= sortedTiers[i - 1].min) {
+                sortedTiers[i].min = sortedTiers[i - 1].min + 5;
+            }
+        }
+
+        const nextConfig = {
+            ...systemConfig,
             tiers: sortedTiers,
-            passTarget: Math.min(95, Math.max(30, Number(configDraft.passTarget) || 60)),
+            passTarget: Math.min(100, Math.max(10, Number(configDraft.passTarget) || 60)),
             winStreakTrigger: Math.max(2, Number(configDraft.winStreakTrigger) || 5),
-            lossStreakTrigger: Math.max(1, Number(configDraft.lossStreakTrigger) || 2),
+            lossStreakTrigger: Math.max(2, Number(configDraft.lossStreakTrigger) || 2),
             minQuestions: Math.max(5, Number(configDraft.minQuestions) || 10),
             countdownMinutes: Math.max(1, Number(configDraft.countdownMinutes) || 5)
         };
 
-        onUpdateConfig(cleanedConfig);
-        appendAuditLog(
-            'Updated Rule Engine',
-            'SYSTEM_CONFIG',
-            `Pass ${cleanedConfig.passTarget}%, WinStreak ${cleanedConfig.winStreakTrigger}, LossStreak ${cleanedConfig.lossStreakTrigger}, MinQ ${cleanedConfig.minQuestions}`
+        if (onUpdateConfig) onUpdateConfig(nextConfig);
+        appendAudit(
+            'RULES_UPDATED',
+            `Pass: ${nextConfig.passTarget}%, Win Streak: ${nextConfig.winStreakTrigger}x, Loss Penalty: ${nextConfig.lossStreakTrigger}x, Min Q: ${nextConfig.minQuestions}, Timer: ${nextConfig.countdownMinutes}m.`,
+            'info'
         );
-        setSaveFeedback('Rules saved and synced to student arena.');
-        setTimeout(() => setSaveFeedback(''), 3000);
+        showToast('System rules saved and applied live.');
     };
 
-    const handleResetDefaultRules = () => {
-        if (!window.confirm('Reset all rank thresholds and streak rules to ACADEMIU defaults?')) return;
-        const resetConfig = {
+    const handleResetRules = () => {
+        if (!window.confirm('Restore all rank thresholds and drill rules to defaults?')) return;
+        const nextConfig = {
             ...DEFAULT_SYSTEM_CONFIG,
-            announcement: configDraft.announcement,
-            maintenanceMode: configDraft.maintenanceMode
+            announcement: systemConfig.announcement || '',
+            maintenanceMode: Boolean(systemConfig.maintenanceMode)
         };
-        setConfigDraft(resetConfig);
-        onUpdateConfig(resetConfig);
-        appendAuditLog('Reset Rule Engine', 'SYSTEM_CONFIG', 'Restored default rank & streak rules');
-        setSaveFeedback('Restored default rules.');
-        setTimeout(() => setSaveFeedback(''), 3000);
+        setConfigDraft(nextConfig);
+        if (onUpdateConfig) onUpdateConfig(nextConfig);
+        appendAudit('RULES_RESET', 'Restored rank thresholds and streak rules to defaults.', 'warn');
+        showToast('Default system rules restored.');
     };
 
+    // --- BROADCAST & MAINTENANCE ACTIONS ---
     const handleSaveBroadcast = (e) => {
         e.preventDefault();
-        const cleanedConfig = {
+        const nextConfig = {
             ...systemConfig,
             announcement: configDraft.announcement.trim(),
             maintenanceMode: Boolean(configDraft.maintenanceMode)
         };
-        onUpdateConfig(cleanedConfig);
-        appendAuditLog(
-            'Updated Broadcast / Maintenance',
-            'GAME_SHELL',
-            `Maintenance: ${cleanedConfig.maintenanceMode ? 'ON' : 'OFF'}`
+        if (onUpdateConfig) onUpdateConfig(nextConfig);
+        appendAudit(
+            'BROADCAST_UPDATED',
+            `Maintenance: ${nextConfig.maintenanceMode ? 'ON' : 'OFF'} | Banner: "${nextConfig.announcement || 'Cleared'
+            }"`,
+            nextConfig.maintenanceMode ? 'danger' : 'info'
         );
-        setSaveFeedback('Broadcast settings published.');
-        setTimeout(() => setSaveFeedback(''), 3000);
+        showToast('Broadcast & Maintenance settings published.');
     };
 
-    const handleClearAuditLogs = () => {
-        if (!window.confirm('Clear all audit log entries?')) return;
-        localStorage.removeItem(AUDIT_LOG_KEY);
-        setAuditLogs([]);
+    const handleClearAnnouncement = () => {
+        const nextConfig = { ...systemConfig, announcement: '' };
+        setConfigDraft((prev) => ({ ...prev, announcement: '' }));
+        if (onUpdateConfig) onUpdateConfig(nextConfig);
+        appendAudit('ANNOUNCEMENT_CLEARED', 'Cleared global announcement banner.', 'info');
+        showToast('Announcement banner cleared.');
     };
+
+    const handleToggleMaintenanceImmediate = () => {
+        const nextMode = !configDraft.maintenanceMode;
+        setConfigDraft((prev) => ({ ...prev, maintenanceMode: nextMode }));
+        const nextConfig = {
+            ...systemConfig,
+            announcement: configDraft.announcement.trim(),
+            maintenanceMode: nextMode
+        };
+        if (onUpdateConfig) onUpdateConfig(nextConfig);
+        appendAudit(
+            nextMode ? 'MAINTENANCE_ENABLED' : 'MAINTENANCE_DISABLED',
+            nextMode
+                ? 'Locked Front Page student login & guest access.'
+                : 'Re-opened Front Page for student access.',
+            nextMode ? 'danger' : 'info'
+        );
+        showToast(nextMode ? 'Maintenance Mode ENABLED.' : 'Maintenance Mode DISABLED.');
+    };
+
+    // --- AUDIT LOG ACTIONS ---
+    const handleClearAuditLogs = () => {
+        if (!window.confirm('Clear all recorded Admin audit logs?')) return;
+        setAuditLogs([]);
+        localStorage.removeItem(AUDIT_LOG_KEY);
+        showToast('Audit log cleared.');
+    };
+
+    const handleExportAuditJson = () => {
+        const blob = new Blob([JSON.stringify(auditLogs, null, 2)], {
+            type: 'application/json'
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `clutchup-arena-audit-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const adminMenu = [
+        { id: 'overview', label: 'Telemetry', icon: LayoutDashboard },
+        { id: 'users', label: 'Users', icon: Users },
+        { id: 'rules', label: 'Rule Engine', icon: Sliders },
+        { id: 'broadcast', label: 'Banner', icon: Megaphone },
+        { id: 'audit', label: 'Audit Logs', icon: ScrollText }
+    ];
+
+    const hasLiveBanner =
+        Boolean(systemConfig?.maintenanceMode) || Boolean(systemConfig?.announcement?.trim());
 
     return (
-        <div className="game-shell flex flex-col h-screen overflow-hidden">
+        <div className="game-shell text-[#FAF6EE]">
             {/* ===== ADMIN TOP HUD ===== */}
             <header className="game-hud">
                 <div className="flex items-center gap-2.5 min-w-0">
-                    {/* Top-Left Back Button */}
                     <button
                         type="button"
                         onClick={handleGoBack}
@@ -412,37 +572,53 @@ export default function AdminPanel({
                         <ArrowLeft className="w-4 h-4" />
                     </button>
 
-                    {/* Clickable Logo -> Back to Admin Home (Telemetry) */}
                     <button
                         type="button"
-                        onClick={() => navigateToTab('overview')}
-                        title="Back to Admin Home"
-                        aria-label="Back to Admin Home"
-                        className="game-logo-pill cursor-pointer hover:brightness-105 active:scale-[0.98] transition"
+                        onClick={() => navigateTab('overview')}
+                        className="game-logo-pill shrink-0 cursor-pointer"
+                        title="Admin Telemetry"
                     >
-                        <OfficialLogo variant="full" />
+                        <OfficialLogo variant="full" size="md" />
                     </button>
 
-                    <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg bg-[#D8B878]/15 border border-[#D8B878]/50 text-[#F5D78E]">
+                    <span className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg bg-[#D8B878]/15 border border-[#D8B878]/45 text-[#F5D78E]">
                         <ShieldCheck className="w-3.5 h-3.5" />
                         Admin Control Plane
                     </span>
+
+                    {toast && (
+                        <span className="hidden lg:inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-200">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
+                            {toast}
+                        </span>
+                    )}
                 </div>
 
-                <div className="flex items-center gap-2.5 shrink-0">
-                    <button
-                        type="button"
-                        onClick={onSwitchToStudent}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-[#F5D78E] bg-[#1E3F8A]/70 border border-[#D8B878]/40 hover:border-[#D8B878] transition"
-                    >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Student View</span>
-                    </button>
+                <div className="flex items-center gap-2 shrink-0">
+                    {onSwitchToStudent && (
+                        <button
+                            type="button"
+                            onClick={onSwitchToStudent}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1E3F8A] hover:bg-[#2751B0] border border-[#D8B878]/40 text-xs font-bold text-[#FAF6EE] transition"
+                        >
+                            <Eye className="w-3.5 h-3.5 text-[#F5D78E]" />
+                            <span className="hidden sm:inline">Student Preview</span>
+                        </button>
+                    )}
+
+                    <div className="hidden md:flex flex-col text-right leading-tight max-w-[150px]">
+                        <span className="text-xs font-bold text-[#FAF6EE] truncate">
+                            {currentUser?.name || 'Arena Admin'}
+                        </span>
+                        <span className="text-[10px] text-[#A9B8D6] truncate">
+                            {currentUser?.email}
+                        </span>
+                    </div>
 
                     <button
                         type="button"
                         onClick={onLogout}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-[#A9B8D6] hover:text-white bg-white/5 border border-white/15 hover:border-[#D8B878] transition"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-[#A9B8D6] hover:text-white bg-white/5 border border-white/15 hover:border-[#D8B878] transition"
                     >
                         <LogOut className="w-4 h-4" />
                         <span className="hidden sm:inline">Log Out</span>
@@ -450,449 +626,472 @@ export default function AdminPanel({
                 </div>
             </header>
 
-            {/* ===== ADMIN MAIN STAGE ===== */}
-            <main className="game-main flex-1 min-h-0 overflow-hidden flex flex-col">
-                {/* Global Feedback Toast */}
-                {saveFeedback && (
-                    <div className="mb-2 px-4 py-2 rounded-xl bg-emerald-500/15 border border-emerald-400/50 text-emerald-200 text-xs font-bold flex items-center gap-2 shrink-0">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                        <span>{saveFeedback}</span>
-                    </div>
+            {/* ===== FIXED MAIN STAGE (NO OUTER SCROLL) ===== */}
+            <main className="game-main">
+                {/* Live Banner Indicator (hidden on Broadcast tab since Broadcast has its own live preview) */}
+                {hasLiveBanner && activeTab !== 'broadcast' && (
+                    <AnnouncementBanner
+                        message={systemConfig?.announcement}
+                        maintenanceMode={Boolean(systemConfig?.maintenanceMode)}
+                    />
                 )}
 
-                <div className="flex-1 min-h-0">
-                    {/* ==========================================================
-              TAB 1: SYSTEM TELEMETRY OVERVIEW (ADMIN HOME)
-             ========================================================== */}
+                <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                    {/* ============================================================
+              TAB 1: TELEMETRY OVERVIEW
+             ============================================================ */}
                     {activeTab === 'overview' && (
-                        <div className="game-fit text-slate-800">
-                            <div className="flex items-center justify-between gap-3 shrink-0">
+                        <div className="game-fit">
+                            {/* Header */}
+                            <div className="flex items-center justify-between gap-2 shrink-0">
                                 <div>
-                                    <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
-                                        Platform Telemetry
+                                    <h1 className="text-lg md:text-xl font-black text-[#FAF6EE] tracking-tight">
+                                        Arena Telemetry & Status
                                     </h1>
-                                    <p className="text-xs text-slate-500">
-                                        Live overview of accounts, seasons, drills, and rank distribution
+                                    <p className="text-[11px] text-[#A9B8D6]">
+                                        Live overview of registered challengers, rank spread, and system rules
                                     </p>
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={loadUsersFromStorage}
-                                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:border-blue-400 transition"
-                                >
-                                    <RotateCcw className="w-3.5 h-3.5" /> Refresh
-                                </button>
-                            </div>
 
-                            {/* System Alert Banner if Maintenance or Suspensions active */}
-                            {(systemConfig.maintenanceMode || telemetry.suspendedUsers > 0) && (
-                                <div className="game-card-alert rounded-2xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 shrink-0">
-                                    <div className="flex items-center gap-2 text-xs font-bold text-rose-100">
-                                        <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-                                        <span>
-                                            {systemConfig.maintenanceMode && 'Maintenance Mode is ACTIVE (student login locked). '}
-                                            {telemetry.suspendedUsers > 0 &&
-                                                `${telemetry.suspendedUsers} account(s) currently suspended.`}
-                                        </span>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={() =>
-                                            navigateToTab(systemConfig.maintenanceMode ? 'broadcast' : 'users')
-                                        }
-                                        className="text-[11px] font-bold text-rose-200 underline underline-offset-2"
-                                    >
-                                        Manage
-                                    </button>
-                                </div>
-                            )}
+                                <span
+                                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider border ${systemConfig.maintenanceMode
+                                            ? 'bg-rose-500/20 border-rose-400/50 text-rose-200'
+                                            : 'bg-emerald-500/20 border-emerald-400/50 text-emerald-200'
+                                        }`}
+                                >
+                                    <span
+                                        className={`w-2 h-2 rounded-full ${systemConfig.maintenanceMode ? 'bg-rose-400 animate-pulse' : 'bg-emerald-400'
+                                            }`}
+                                    />
+                                    {systemConfig.maintenanceMode ? 'Maintenance Lock' : 'Arena Online'}
+                                </span>
+                            </div>
 
                             {/* KPI Strip */}
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 shrink-0">
-                                <div className="game-card-sys px-4 py-3 rounded-2xl flex items-center justify-between">
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 shrink-0">
+                                <div className="rounded-2xl bg-[#0D1F44] border border-white/10 px-4 py-3 flex items-center justify-between">
                                     <div>
-                                        <span className="text-[10px] font-bold uppercase text-slate-400 block">
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#A9B8D6] block">
                                             Total Accounts
                                         </span>
-                                        <div className="text-2xl font-black font-mono text-slate-900">
+                                        <div className="text-2xl font-black font-mono text-[#FAF6EE]">
                                             {telemetry.totalUsers}
                                         </div>
+                                        <span className="text-[10px] text-[#A9B8D6]">
+                                            {telemetry.studentCount} Students • {telemetry.adminCount} Admin
+                                        </span>
                                     </div>
-                                    <Users className="w-5 h-5 text-blue-500 shrink-0" />
+                                    <Users className="w-6 h-6 text-[#D8B878] shrink-0" />
                                 </div>
 
-                                <div className="game-card-sys px-4 py-3 rounded-2xl flex items-center justify-between">
+                                <div className="rounded-2xl bg-[#0D1F44] border border-white/10 px-4 py-3 flex items-center justify-between">
                                     <div>
-                                        <span className="text-[10px] font-bold uppercase text-slate-400 block">
-                                            Active Seasons
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#A9B8D6] block">
+                                            Drills Logged
                                         </span>
-                                        <div className="text-2xl font-black font-mono text-slate-900">
-                                            {telemetry.activeSeasons}
-                                        </div>
-                                    </div>
-                                    <FolderArchive className="w-5 h-5 text-[#D8B878] shrink-0" />
-                                </div>
-
-                                <div className="game-card-sys px-4 py-3 rounded-2xl flex items-center justify-between">
-                                    <div>
-                                        <span className="text-[10px] font-bold uppercase text-slate-400 block">
-                                            Drills Completed
-                                        </span>
-                                        <div className="text-2xl font-black font-mono text-slate-900">
+                                        <div className="text-2xl font-black font-mono text-[#F5D78E]">
                                             {telemetry.totalDrills}
                                         </div>
+                                        <span className="text-[10px] text-[#A9B8D6]">Across active seasons</span>
                                     </div>
-                                    <Swords className="w-5 h-5 text-indigo-400 shrink-0" />
+                                    <Swords className="w-6 h-6 text-sky-400 shrink-0" />
                                 </div>
 
-                                <div className="game-card-sys px-4 py-3 rounded-2xl flex items-center justify-between">
+                                <div className="rounded-2xl bg-[#0D1F44] border border-white/10 px-4 py-3 flex items-center justify-between">
                                     <div>
-                                        <span className="text-[10px] font-bold uppercase text-slate-400 block">
-                                            Platform Pass Rate
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#A9B8D6] block">
+                                            Platform Accuracy
                                         </span>
-                                        <div className="text-2xl font-black font-mono text-emerald-500">
-                                            {telemetry.passRate}%
+                                        <div className="text-2xl font-black font-mono text-emerald-400">
+                                            {telemetry.platformAvg}%
                                         </div>
-                                    </div>
-                                    <Trophy className="w-5 h-5 text-emerald-500 shrink-0" />
-                                </div>
-                            </div>
-
-                            {/* Chart + Recent Audit Logs */}
-                            <div className="game-fit-body grid grid-cols-1 lg:grid-cols-12 gap-3 min-h-0">
-                                <div className="lg:col-span-7 game-card-sys rounded-2xl p-4 flex flex-col gap-2 min-h-[220px] lg:min-h-0">
-                                    <div className="flex items-center justify-between shrink-0">
-                                        <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                                            Player Rank Distribution
-                                        </span>
-                                        <span className="text-[10px] font-mono font-bold text-[#D8B878]">
+                                        <span className="text-[10px] text-[#A9B8D6]">
                                             Target: {systemConfig.passTarget}%
                                         </span>
                                     </div>
-                                    <div className="flex-1 min-h-0">
-                                        <Bar data={rankDistributionData} options={rankDistributionOptions} />
-                                    </div>
+                                    <Target className="w-6 h-6 text-emerald-400 shrink-0" />
                                 </div>
 
-                                <div className="lg:col-span-5 game-card-user rounded-2xl p-4 flex flex-col gap-2 min-h-0">
-                                    <div className="flex items-center justify-between shrink-0">
-                                        <span className="text-xs font-black uppercase tracking-wider text-[#D8B878]">
-                                            Recent Admin Actions
+                                <div className="rounded-2xl bg-[#0D1F44] border border-white/10 px-4 py-3 flex items-center justify-between">
+                                    <div>
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#A9B8D6] block">
+                                            Suspended Users
                                         </span>
+                                        <div className="text-2xl font-black font-mono text-rose-400">
+                                            {telemetry.suspendedCount}
+                                        </div>
+                                        <span className="text-[10px] text-[#A9B8D6]">Restricted accounts</span>
+                                    </div>
+                                    <ShieldAlert className="w-6 h-6 text-rose-400 shrink-0" />
+                                </div>
+                            </div>
+
+                            {/* Main 2-Column Body */}
+                            <div className="game-fit-body grid grid-cols-1 lg:grid-cols-12 gap-3 min-h-0">
+                                {/* Left (7 cols): Student Rank Distribution Bar Graph */}
+                                <div className="lg:col-span-7 rounded-2xl bg-[#0D1F44] border border-[#D8B878]/25 p-4 flex flex-col gap-3 min-h-0 overflow-hidden">
+                                    <div className="flex items-center justify-between border-b border-white/10 pb-2 shrink-0">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs font-black uppercase tracking-wider text-[#D8B878]">
+                                                Student Rank Distribution
+                                            </span>
+                                            <span className="text-[10px] font-mono text-[#A9B8D6]">
+                                                ({telemetry.studentCount} Students)
+                                            </span>
+                                        </div>
                                         <button
                                             type="button"
-                                            onClick={() => navigateToTab('audit')}
-                                            className="text-[11px] font-bold text-blue-400 hover:underline"
+                                            onClick={() => navigateTab('rules')}
+                                            className="text-[11px] font-bold text-[#F5D78E] hover:underline"
                                         >
-                                            View All
+                                            Edit Thresholds →
                                         </button>
                                     </div>
 
-                                    <div className="game-scroll flex-1 space-y-2 pr-1">
-                                        {auditLogs.length === 0 ? (
-                                            <div className="text-xs text-slate-500 py-6 text-center">
-                                                No admin actions recorded yet.
+                                    <div className="flex-1 min-h-0 relative">
+                                        <Bar data={rankChartData} options={rankChartOptions} />
+                                    </div>
+                                </div>
+
+                                {/* Right (5 cols): Active Rules Snapshot + Recent Audit */}
+                                <div className="lg:col-span-5 rounded-2xl bg-[#0D1F44] border border-white/10 p-4 flex flex-col gap-3 min-h-0 overflow-hidden">
+                                    <div className="flex items-center justify-between border-b border-white/10 pb-2 shrink-0">
+                                        <span className="text-xs font-black uppercase tracking-wider text-[#A9B8D6]">
+                                            Recent Admin Activity
+                                        </span>
+                                        <button
+                                            type="button"
+                                            onClick={() => navigateTab('audit')}
+                                            className="text-[11px] font-bold text-[#F5D78E] hover:underline"
+                                        >
+                                            View All →
+                                        </button>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-2 shrink-0">
+                                        <div className="p-2.5 rounded-xl bg-[#09152E] border border-white/10">
+                                            <span className="text-[10px] text-[#A9B8D6] uppercase font-bold block">
+                                                Drill Rules
+                                            </span>
+                                            <div className="text-xs font-mono font-black text-[#FAF6EE] mt-0.5">
+                                                {systemConfig.minQuestions}Q • {systemConfig.countdownMinutes} Min
                                             </div>
-                                        ) : (
-                                            auditLogs.slice(0, 6).map((log) => (
-                                                <div
-                                                    key={log.id}
-                                                    className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs"
-                                                >
-                                                    <div className="flex items-center justify-between gap-2">
-                                                        <span className="font-bold text-slate-900">{log.action}</span>
-                                                        <span className="text-[10px] font-mono text-slate-400">
-                                                            {log.timestamp}
-                                                        </span>
-                                                    </div>
-                                                    <div className="text-[11px] text-slate-500 truncate mt-0.5">
-                                                        Target: {log.target}
-                                                    </div>
-                                                </div>
-                                            ))
-                                        )}
+                                        </div>
+                                        <div className="p-2.5 rounded-xl bg-[#09152E] border border-white/10">
+                                            <span className="text-[10px] text-[#A9B8D6] uppercase font-bold block">
+                                                Streak Triggers
+                                            </span>
+                                            <div className="text-xs font-mono font-black text-[#F5D78E] mt-0.5">
+                                                +{systemConfig.winStreakTrigger}W (2x) / -{systemConfig.lossStreakTrigger}L
+                                            </div>
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
 
-                    {/* ==========================================================
-              TAB 2: USER & ACCESS MANAGEMENT
-             ========================================================== */}
-                    {activeTab === 'users' && (
-                        <div className="game-fit text-slate-800">
-                            <div className="flex flex-wrap items-center justify-between gap-3 shrink-0">
-                                <div>
-                                    <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
-                                        User & Access Control
-                                    </h1>
-                                    <p className="text-xs text-slate-500">
-                                        Manage registered Email & Google accounts, roles, and suspensions
-                                    </p>
-                                </div>
-
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <div className="relative">
-                                        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                                        <input
-                                            type="text"
-                                            value={searchQuery}
-                                            onChange={(e) => setSearchQuery(e.target.value)}
-                                            placeholder="Search name or email..."
-                                            className="pl-8 pr-3 py-1.5 rounded-xl border text-xs font-semibold focus:outline-none w-48"
-                                        />
-                                    </div>
-                                    <select
-                                        value={statusFilter}
-                                        onChange={(e) => setStatusFilter(e.target.value)}
-                                        className="px-3 py-1.5 rounded-xl border text-xs font-bold focus:outline-none"
-                                    >
-                                        <option value="All">All Accounts</option>
-                                        <option value="Active">Active Only</option>
-                                        <option value="Suspended">Suspended</option>
-                                        <option value="Admins">Admins Only</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div className="flex-1 min-h-0 game-card-user rounded-2xl overflow-hidden flex flex-col">
-                                <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between shrink-0">
-                                    <span className="text-xs font-black uppercase tracking-wider text-[#D8B878]">
-                                        Account Directory
-                                    </span>
-                                    <span className="text-xs font-mono font-bold text-slate-400">
-                                        {filteredUsers.length} Shown
-                                    </span>
-                                </div>
-
-                                <div className="game-scroll flex-1">
-                                    {filteredUsers.length === 0 ? (
-                                        <div className="p-8 text-center text-xs text-slate-500">
-                                            No matching accounts found.
+                                    {auditLogs.length === 0 ? (
+                                        <div className="flex-1 flex items-center justify-center text-xs text-[#A9B8D6]">
+                                            No admin actions logged yet.
                                         </div>
                                     ) : (
-                                        <table className="w-full text-left border-collapse text-xs">
-                                            <thead className="sticky top-0 z-10">
-                                                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase">
-                                                    <th className="py-3 px-4">Player</th>
-                                                    <th className="py-3 px-4">Season & Rank</th>
-                                                    <th className="py-3 px-4 text-center">Activity</th>
-                                                    <th className="py-3 px-4 text-center">Role</th>
-                                                    <th className="py-3 px-4 text-center">Status</th>
-                                                    <th className="py-3 px-4 text-right">Controls</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-100">
-                                                {filteredUsers.map((u) => {
-                                                    const isSelf = u.email === currentUser?.email?.toLowerCase();
-                                                    const isSuspended = u.status === 'suspended';
-                                                    return (
-                                                        <tr key={u.email} className="hover:bg-blue-50/40 transition">
-                                                            <td className="py-3 px-4">
-                                                                <div className="font-bold text-slate-900 flex items-center gap-1.5">
-                                                                    <span>{u.name}</span>
-                                                                    <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                                                                        {u.provider}
-                                                                    </span>
-                                                                </div>
-                                                                <div className="text-[11px] text-slate-500">{u.email}</div>
-                                                            </td>
-                                                            <td className="py-3 px-4">
-                                                                <div className="flex items-center gap-2">
-                                                                    <RankCrest tierName={u.tierName} size="sm" />
-                                                                    <div>
-                                                                        <div className="font-bold text-slate-900">
-                                                                            {u.tierName}{' '}
-                                                                            <span className="font-mono text-[#D8B878]">
-                                                                                ({u.totalStars} ★)
-                                                                            </span>
-                                                                        </div>
-                                                                        <div className="text-[11px] text-slate-500">
-                                                                            Season: {u.currentSeasonName}
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </td>
-                                                            <td className="py-3 px-4 text-center font-mono">
-                                                                <div className="font-bold text-slate-900">
-                                                                    {u.drillCount} Drills
-                                                                </div>
-                                                                <div className="text-[10px] text-slate-400">
-                                                                    {u.folderCount} Folders • Avg{' '}
-                                                                    {u.avgScore !== null ? `${u.avgScore}%` : '—'}
-                                                                </div>
-                                                            </td>
-                                                            <td className="py-3 px-4 text-center">
-                                                                <span
-                                                                    className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${u.role === 'admin'
-                                                                            ? 'bg-amber-500/20 text-[#F5D78E] border border-[#D8B878]/50'
-                                                                            : 'bg-slate-100 text-slate-600'
-                                                                        }`}
-                                                                >
-                                                                    {u.role}
-                                                                </span>
-                                                            </td>
-                                                            <td className="py-3 px-4 text-center">
-                                                                <span
-                                                                    className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${isSuspended
-                                                                            ? 'bg-rose-500/20 text-rose-400 border border-rose-400/40'
-                                                                            : 'bg-emerald-500/20 text-emerald-400 border border-emerald-400/40'
-                                                                        }`}
-                                                                >
-                                                                    {u.status}
-                                                                </span>
-                                                            </td>
-                                                            <td className="py-3 px-4 text-right whitespace-nowrap">
-                                                                <div className="inline-flex items-center gap-1.5">
-                                                                    <button
-                                                                        type="button"
-                                                                        disabled={isSelf}
-                                                                        onClick={() =>
-                                                                            updateStoredAccountField(
-                                                                                u.email,
-                                                                                { role: u.role === 'admin' ? 'student' : 'admin' },
-                                                                                u.role === 'admin' ? 'Demoted to Student' : 'Promoted to Admin'
-                                                                            )
-                                                                        }
-                                                                        className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-[11px] font-bold text-slate-600 hover:border-[#D8B878] disabled:opacity-30 transition"
-                                                                    >
-                                                                        {u.role === 'admin' ? 'Make Student' : 'Make Admin'}
-                                                                    </button>
-                                                                    <button
-                                                                        type="button"
-                                                                        disabled={isSelf}
-                                                                        onClick={() =>
-                                                                            updateStoredAccountField(
-                                                                                u.email,
-                                                                                { status: isSuspended ? 'active' : 'suspended' },
-                                                                                isSuspended ? 'Reactivated Account' : 'Suspended Account'
-                                                                            )
-                                                                        }
-                                                                        className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold disabled:opacity-30 transition ${isSuspended
-                                                                                ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                                                                                : 'border border-rose-300 text-rose-500 hover:bg-rose-50'
-                                                                            }`}
-                                                                    >
-                                                                        <Ban className="w-3 h-3" />
-                                                                        {isSuspended ? 'Reactivate' : 'Suspend'}
-                                                                    </button>
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })}
-                                            </tbody>
-                                        </table>
+                                        <div className="game-scroll flex-1 space-y-2 pr-1">
+                                            {auditLogs.slice(0, 8).map((log) => (
+                                                <div
+                                                    key={log.id}
+                                                    className="p-2.5 rounded-xl bg-[#09152E]/80 border border-white/10 space-y-0.5"
+                                                >
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <span className="text-[10px] font-mono font-black text-[#F5D78E]">
+                                                            {log.action}
+                                                        </span>
+                                                        <span className="text-[10px] text-[#A9B8D6]">{log.timestamp}</span>
+                                                    </div>
+                                                    <p className="text-[11px] text-[#D6DEF0] truncate">{log.details}</p>
+                                                </div>
+                                            ))}
+                                        </div>
                                     )}
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    {/* ==========================================================
-              TAB 3: RANK & STREAK RULE ENGINE
-             ========================================================== */}
-                    {activeTab === 'rules' && (
-                        <form onSubmit={handleSaveRules} className="game-fit text-slate-800">
-                            <div className="flex flex-wrap items-center justify-between gap-3 shrink-0">
+                    {/* ============================================================
+              TAB 2: USER MODERATION
+             ============================================================ */}
+                    {activeTab === 'users' && (
+                        <div className="game-fit">
+                            <div className="flex flex-wrap items-center justify-between gap-2 shrink-0">
                                 <div>
-                                    <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
-                                        Rank & Streak Rule Engine
+                                    <h1 className="text-lg md:text-xl font-black text-[#FAF6EE]">
+                                        User Moderation
                                     </h1>
-                                    <p className="text-xs text-slate-500">
-                                        Configure star requirements, streak multipliers, and AI drill minimums
+                                    <p className="text-[11px] text-[#A9B8D6]">
+                                        Manage student & admin accounts, inspect ranks, suspend, or reset progress
+                                    </p>
+                                </div>
+
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <div className="relative">
+                                        <Search className="w-3.5 h-3.5 text-[#A9B8D6] absolute left-3 top-1/2 -translate-y-1/2" />
+                                        <input
+                                            type="text"
+                                            value={userSearch}
+                                            onChange={(e) => setUserSearch(e.target.value)}
+                                            placeholder="Search name, email, rank..."
+                                            className="pl-8 pr-3 py-1.5 rounded-xl bg-[#0D1F44] border border-white/15 focus:border-[#D8B878] text-xs text-[#FAF6EE] placeholder:text-slate-400 focus:outline-none w-52"
+                                        />
+                                    </div>
+
+                                    <div className="flex items-center gap-1 p-1 rounded-xl bg-[#0D1F44] border border-white/10">
+                                        {['all', 'student', 'admin', 'suspended'].map((f) => (
+                                            <button
+                                                key={f}
+                                                type="button"
+                                                onClick={() => setRoleFilter(f)}
+                                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold capitalize transition ${roleFilter === f
+                                                        ? 'bg-[#1E3F8A] text-[#F5D78E]'
+                                                        : 'text-[#A9B8D6] hover:text-white'
+                                                    }`}
+                                            >
+                                                {f}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="game-fit-body rounded-2xl bg-[#0D1F44] border border-white/10 p-3 flex flex-col min-h-0 overflow-hidden">
+                                <div className="game-scroll flex-1 space-y-2 pr-1">
+                                    {filteredUsers.length === 0 ? (
+                                        <div className="h-full flex items-center justify-center text-xs text-[#A9B8D6] py-12">
+                                            No accounts match your filter.
+                                        </div>
+                                    ) : (
+                                        filteredUsers.map((u) => {
+                                            const isSelf =
+                                                u.email.toLowerCase() === currentUser?.email?.toLowerCase();
+                                            const isSuspended = u.status === 'suspended';
+
+                                            return (
+                                                <div
+                                                    key={u.email}
+                                                    className={`p-3 rounded-xl border flex flex-wrap items-center justify-between gap-3 ${isSuspended
+                                                            ? 'bg-rose-950/35 border-rose-500/40'
+                                                            : 'bg-[#09152E]/85 border-white/10'
+                                                        }`}
+                                                >
+                                                    <div className="flex items-center gap-3 min-w-0">
+                                                        <RankCrest tierName={u.tier} size="sm" />
+                                                        <div className="min-w-0">
+                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                <span className="text-sm font-black text-[#FAF6EE] truncate">
+                                                                    {u.name}
+                                                                </span>
+                                                                <span
+                                                                    className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md ${u.role === 'admin'
+                                                                            ? 'bg-[#D8B878]/20 text-[#F5D78E] border border-[#D8B878]/40'
+                                                                            : 'bg-sky-500/20 text-sky-300 border border-sky-400/30'
+                                                                        }`}
+                                                                >
+                                                                    {u.role}
+                                                                </span>
+                                                                {isSuspended && (
+                                                                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-rose-600 text-white">
+                                                                        Suspended
+                                                                    </span>
+                                                                )}
+                                                                {isSelf && (
+                                                                    <span className="text-[10px] font-bold text-emerald-300">
+                                                                        (You)
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <div className="text-[11px] text-[#A9B8D6] truncate">
+                                                                {u.email} • {u.tier} ({u.stars}★) • {u.drillCount} Drills • Avg{' '}
+                                                                {u.avgScore}% • Season: {u.seasonName}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-1.5 shrink-0">
+                                                        <button
+                                                            type="button"
+                                                            disabled={isSelf}
+                                                            onClick={() => handleToggleSuspend(u)}
+                                                            title={isSuspended ? 'Reactivate Account' : 'Suspend Account'}
+                                                            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 border transition disabled:opacity-30 disabled:cursor-not-allowed ${isSuspended
+                                                                    ? 'bg-emerald-600/25 border-emerald-400/40 text-emerald-200 hover:bg-emerald-600/40'
+                                                                    : 'bg-amber-500/15 border-amber-400/40 text-amber-200 hover:bg-amber-500/30'
+                                                                }`}
+                                                        >
+                                                            {isSuspended ? (
+                                                                <>
+                                                                    <UserCheck className="w-3.5 h-3.5" />
+                                                                    <span>Activate</span>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <Ban className="w-3.5 h-3.5" />
+                                                                    <span>Suspend</span>
+                                                                </>
+                                                            )}
+                                                        </button>
+
+                                                        <button
+                                                            type="button"
+                                                            disabled={isSelf}
+                                                            onClick={() => handleToggleRole(u)}
+                                                            title="Toggle Admin/Student Role"
+                                                            className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold inline-flex items-center gap-1 bg-white/5 hover:bg-white/10 border border-white/15 text-[#D6DEF0] transition disabled:opacity-30 disabled:cursor-not-allowed"
+                                                        >
+                                                            <ShieldCheck className="w-3.5 h-3.5 text-[#D8B878]" />
+                                                            <span>{u.role === 'admin' ? 'Demote' : 'Make Admin'}</span>
+                                                        </button>
+
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleResetProgress(u)}
+                                                            title="Reset Student Progress"
+                                                            className="p-1.5 rounded-lg bg-white/5 hover:bg-amber-500/20 border border-white/15 text-[#A9B8D6] hover:text-amber-300 transition"
+                                                        >
+                                                            <RotateCcw className="w-3.5 h-3.5" />
+                                                        </button>
+
+                                                        <button
+                                                            type="button"
+                                                            disabled={isSelf}
+                                                            onClick={() => handleDeleteAccount(u)}
+                                                            title="Delete Account"
+                                                            className="p-1.5 rounded-lg bg-white/5 hover:bg-rose-500/25 border border-white/15 text-[#A9B8D6] hover:text-rose-300 transition disabled:opacity-30 disabled:cursor-not-allowed"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ============================================================
+              TAB 3: RULE ENGINE (RANK THRESHOLDS & STREAKS)
+             ============================================================ */}
+                    {activeTab === 'rules' && (
+                        <form onSubmit={handleSaveRules} className="game-fit">
+                            <div className="flex flex-wrap items-center justify-between gap-2 shrink-0">
+                                <div>
+                                    <h1 className="text-lg md:text-xl font-black text-[#FAF6EE]">
+                                        Arena Rule Engine
+                                    </h1>
+                                    <p className="text-[11px] text-[#A9B8D6]">
+                                        Customize Warrior-to-Mythic star thresholds, streak multipliers, and drill limits
                                     </p>
                                 </div>
 
                                 <div className="flex items-center gap-2">
                                     <button
                                         type="button"
-                                        onClick={handleResetDefaultRules}
-                                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100 transition"
+                                        onClick={handleResetRules}
+                                        className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-xs font-bold text-[#D6DEF0] inline-flex items-center gap-1.5 transition"
                                     >
-                                        <RotateCcw className="w-3.5 h-3.5" /> Reset Defaults
+                                        <RotateCcw className="w-3.5 h-3.5" />
+                                        <span>Reset Defaults</span>
                                     </button>
                                     <button
                                         type="submit"
-                                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition"
+                                        className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-[#D8B878] to-[#F5D78E] hover:brightness-105 text-[#09152E] text-xs font-black inline-flex items-center gap-1.5 transition"
                                     >
-                                        <Save className="w-3.5 h-3.5" /> Save Rules
+                                        <Save className="w-3.5 h-3.5" />
+                                        <span>Save Rules</span>
                                     </button>
                                 </div>
                             </div>
 
                             <div className="game-fit-body grid grid-cols-1 lg:grid-cols-12 gap-3 min-h-0">
-                                {/* Rank Thresholds */}
-                                <div className="lg:col-span-7 game-card-user rounded-2xl p-4 flex flex-col gap-3 min-h-0">
-                                    <span className="text-xs font-black uppercase tracking-wider text-[#D8B878] shrink-0">
-                                        RANK_TIER Minimum Star Requirements
-                                    </span>
+                                {/* Left (7 cols): Rank Thresholds */}
+                                <div className="lg:col-span-7 rounded-2xl bg-[#0D1F44] border border-[#D8B878]/25 p-4 flex flex-col gap-2.5 min-h-0 overflow-hidden">
+                                    <div className="flex items-center justify-between border-b border-white/10 pb-2 shrink-0">
+                                        <span className="text-xs font-black uppercase tracking-wider text-[#D8B878]">
+                                            Division Star Thresholds
+                                        </span>
+                                        <span className="text-[10px] font-mono text-[#A9B8D6]">
+                                            Warrior locked at 0 ★
+                                        </span>
+                                    </div>
 
-                                    <div className="game-scroll flex-1 grid grid-cols-1 sm:grid-cols-2 gap-2.5 pr-1 content-start">
-                                        {configDraft.tiers.map((tier) => (
+                                    <div className="game-scroll flex-1 space-y-2 pr-1">
+                                        {configDraft.tiers.map((tier, idx) => (
                                             <div
                                                 key={tier.name}
-                                                className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3"
+                                                className="p-2.5 rounded-xl bg-[#09152E]/80 border border-white/10 flex items-center justify-between gap-3"
                                             >
-                                                <div className="flex items-center gap-2.5 min-w-0">
+                                                <div className="flex items-center gap-3">
                                                     <RankCrest tierName={tier.name} size="sm" />
-                                                    <div className="min-w-0">
-                                                        <div className="text-xs font-black text-slate-900">{tier.name}</div>
-                                                        <div className="text-[10px] text-slate-500">
-                                                            {tier.name === 'Warrior'
-                                                                ? 'Starting Tier'
-                                                                : tier.name === 'Mythic'
-                                                                    ? 'Top Tier (∞)'
-                                                                    : 'Min Stars'}
+                                                    <div>
+                                                        <div className="text-sm font-black text-[#FAF6EE]">
+                                                            {tier.name}
+                                                        </div>
+                                                        <div className="text-[10px] text-[#A9B8D6]">
+                                                            Tier {idx + 1} of {configDraft.tiers.length}
                                                         </div>
                                                     </div>
                                                 </div>
 
-                                                <input
-                                                    type="number"
-                                                    min="0"
-                                                    max="999"
-                                                    disabled={tier.name === 'Warrior'}
-                                                    value={tier.min}
-                                                    onChange={(e) => handleTierThresholdChange(tier.name, e.target.value)}
-                                                    className="w-20 px-2.5 py-1.5 rounded-xl border text-right text-xs font-mono font-black focus:outline-none disabled:opacity-50"
-                                                />
+                                                <div className="flex items-center gap-2">
+                                                    <label className="text-[11px] font-bold text-[#A9B8D6]">
+                                                        Min Stars
+                                                    </label>
+                                                    <div className="relative">
+                                                        <input
+                                                            type="number"
+                                                            min={idx === 0 ? 0 : 1}
+                                                            disabled={idx === 0}
+                                                            value={tier.min}
+                                                            onChange={(e) => handleTierMinChange(idx, e.target.value)}
+                                                            className="w-24 pl-3 pr-7 py-1.5 rounded-xl bg-[#0D1F44] border border-[#D8B878]/35 text-sm font-mono font-black text-[#F5D78E] focus:outline-none focus:border-[#F5D78E] disabled:opacity-50"
+                                                        />
+                                                        <Star className="w-3.5 h-3.5 text-[#D8B878] fill-[#D8B878] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                                    </div>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
 
-                                {/* Streak & Drill Settings */}
-                                <div className="lg:col-span-5 game-card-user rounded-2xl p-4 flex flex-col gap-4 min-h-0">
-                                    <span className="text-xs font-black uppercase tracking-wider text-[#D8B878] shrink-0">
-                                        Scoring, Streaks & AI Generator
-                                    </span>
+                                {/* Right (5 cols): Streak & Drill Parameters */}
+                                <div className="lg:col-span-5 rounded-2xl bg-[#0D1F44] border border-white/10 p-4 flex flex-col gap-3 min-h-0 overflow-hidden">
+                                    <div className="border-b border-white/10 pb-2 shrink-0">
+                                        <span className="text-xs font-black uppercase tracking-wider text-[#A9B8D6]">
+                                            Drill & Streak Multipliers
+                                        </span>
+                                    </div>
 
-                                    <div className="game-scroll flex-1 space-y-3.5 pr-1">
-                                        <div>
-                                            <label className="block text-xs font-bold text-slate-700 mb-1">
-                                                Pass Target Score (%)
+                                    <div className="game-scroll flex-1 space-y-3 pr-1">
+                                        <div className="p-3 rounded-xl bg-[#09152E]/80 border border-white/10">
+                                            <label className="block text-xs font-bold text-[#FAF6EE] mb-1">
+                                                Pass Target Accuracy (%)
                                             </label>
                                             <input
                                                 type="number"
-                                                min="30"
-                                                max="95"
+                                                min="10"
+                                                max="100"
                                                 value={configDraft.passTarget}
                                                 onChange={(e) =>
-                                                    setConfigDraft({ ...configDraft, passTarget: e.target.value })
+                                                    setConfigDraft((p) => ({ ...p, passTarget: e.target.value }))
                                                 }
-                                                className="w-full px-3.5 py-2 rounded-xl border text-xs font-mono font-bold focus:outline-none"
+                                                className="w-full px-3 py-2 rounded-xl bg-[#0D1F44] border border-white/15 focus:border-[#D8B878] text-sm font-mono font-bold text-[#FAF6EE] focus:outline-none"
                                             />
-                                            <span className="text-[10px] text-slate-500">
-                                                Drills below this score are flagged as Weak Topics.
-                                            </span>
+                                            <p className="text-[10px] text-[#A9B8D6] mt-1">
+                                                Scores below this threshold count as Weak Topics and trigger 0 stars.
+                                            </p>
                                         </div>
 
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div>
-                                                <label className="block text-xs font-bold text-slate-700 mb-1">
-                                                    2x Star Win Streak
+                                        <div className="grid grid-cols-2 gap-2.5">
+                                            <div className="p-3 rounded-xl bg-[#09152E]/80 border border-white/10">
+                                                <label className="block text-xs font-bold text-emerald-300 mb-1">
+                                                    Win Streak (2x ★)
                                                 </label>
                                                 <input
                                                     type="number"
@@ -900,35 +1099,45 @@ export default function AdminPanel({
                                                     max="20"
                                                     value={configDraft.winStreakTrigger}
                                                     onChange={(e) =>
-                                                        setConfigDraft({ ...configDraft, winStreakTrigger: e.target.value })
+                                                        setConfigDraft((p) => ({
+                                                            ...p,
+                                                            winStreakTrigger: e.target.value
+                                                        }))
                                                     }
-                                                    className="w-full px-3.5 py-2 rounded-xl border text-xs font-mono font-bold focus:outline-none"
+                                                    className="w-full px-3 py-2 rounded-xl bg-[#0D1F44] border border-white/15 focus:border-[#D8B878] text-sm font-mono font-bold text-[#FAF6EE] focus:outline-none"
                                                 />
-                                                <span className="text-[10px] text-slate-500">Consecutive 3★ wins</span>
+                                                <p className="text-[10px] text-[#A9B8D6] mt-1">
+                                                    Consecutive 3★ wins
+                                                </p>
                                             </div>
 
-                                            <div>
-                                                <label className="block text-xs font-bold text-slate-700 mb-1">
-                                                    -1 Star Loss Streak
+                                            <div className="p-3 rounded-xl bg-[#09152E]/80 border border-white/10">
+                                                <label className="block text-xs font-bold text-rose-300 mb-1">
+                                                    Loss Streak (-1 ★)
                                                 </label>
                                                 <input
                                                     type="number"
-                                                    min="1"
+                                                    min="2"
                                                     max="10"
                                                     value={configDraft.lossStreakTrigger}
                                                     onChange={(e) =>
-                                                        setConfigDraft({ ...configDraft, lossStreakTrigger: e.target.value })
+                                                        setConfigDraft((p) => ({
+                                                            ...p,
+                                                            lossStreakTrigger: e.target.value
+                                                        }))
                                                     }
-                                                    className="w-full px-3.5 py-2 rounded-xl border text-xs font-mono font-bold focus:outline-none"
+                                                    className="w-full px-3 py-2 rounded-xl bg-[#0D1F44] border border-white/15 focus:border-[#D8B878] text-sm font-mono font-bold text-[#FAF6EE] focus:outline-none"
                                                 />
-                                                <span className="text-[10px] text-slate-500">Consecutive 0★ losses</span>
+                                                <p className="text-[10px] text-[#A9B8D6] mt-1">
+                                                    Consecutive 0★ fails
+                                                </p>
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div>
-                                                <label className="block text-xs font-bold text-slate-700 mb-1">
-                                                    Min AI Questions
+                                        <div className="grid grid-cols-2 gap-2.5">
+                                            <div className="p-3 rounded-xl bg-[#09152E]/80 border border-white/10">
+                                                <label className="block text-xs font-bold text-[#FAF6EE] mb-1">
+                                                    Min Questions
                                                 </label>
                                                 <input
                                                     type="number"
@@ -936,15 +1145,15 @@ export default function AdminPanel({
                                                     max="50"
                                                     value={configDraft.minQuestions}
                                                     onChange={(e) =>
-                                                        setConfigDraft({ ...configDraft, minQuestions: e.target.value })
+                                                        setConfigDraft((p) => ({ ...p, minQuestions: e.target.value }))
                                                     }
-                                                    className="w-full px-3.5 py-2 rounded-xl border text-xs font-mono font-bold focus:outline-none"
+                                                    className="w-full px-3 py-2 rounded-xl bg-[#0D1F44] border border-white/15 focus:border-[#D8B878] text-sm font-mono font-bold text-[#FAF6EE] focus:outline-none"
                                                 />
                                             </div>
 
-                                            <div>
-                                                <label className="block text-xs font-bold text-slate-700 mb-1">
-                                                    Countdown (Mins)
+                                            <div className="p-3 rounded-xl bg-[#09152E]/80 border border-white/10">
+                                                <label className="block text-xs font-bold text-[#FAF6EE] mb-1">
+                                                    Timer (Minutes)
                                                 </label>
                                                 <input
                                                     type="number"
@@ -952,9 +1161,12 @@ export default function AdminPanel({
                                                     max="60"
                                                     value={configDraft.countdownMinutes}
                                                     onChange={(e) =>
-                                                        setConfigDraft({ ...configDraft, countdownMinutes: e.target.value })
+                                                        setConfigDraft((p) => ({
+                                                            ...p,
+                                                            countdownMinutes: e.target.value
+                                                        }))
                                                     }
-                                                    className="w-full px-3.5 py-2 rounded-xl border text-xs font-mono font-bold focus:outline-none"
+                                                    className="w-full px-3 py-2 rounded-xl bg-[#0D1F44] border border-white/15 focus:border-[#D8B878] text-sm font-mono font-bold text-[#FAF6EE] focus:outline-none"
                                                 />
                                             </div>
                                         </div>
@@ -964,189 +1176,289 @@ export default function AdminPanel({
                         </form>
                     )}
 
-                    {/* ==========================================================
-              TAB 4: GLOBAL BROADCASTS & MAINTENANCE MODE
-             ========================================================== */}
+                    {/* ============================================================
+              TAB 4: BROADCAST BANNER & MAINTENANCE MODE
+             ============================================================ */}
                     {activeTab === 'broadcast' && (
-                        <form
-                            onSubmit={handleSaveBroadcast}
-                            className="game-fit text-slate-800 max-w-4xl mx-auto w-full"
-                        >
-                            <div className="flex items-center justify-between gap-3 shrink-0">
+                        <div className="game-fit">
+                            <div className="flex items-center justify-between gap-2 shrink-0">
                                 <div>
-                                    <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
-                                        Broadcasts & Maintenance
+                                    <h1 className="text-lg md:text-xl font-black text-[#FAF6EE]">
+                                        Battle Banner & Maintenance Control
                                     </h1>
-                                    <p className="text-xs text-slate-500">
-                                        Push announcements to students or lock student login on the Front Page
+                                    <p className="text-[11px] text-[#A9B8D6]">
+                                        Publish swallowtail announcements across Front Page, Dashboard, and Report screens
                                     </p>
                                 </div>
-
-                                <button
-                                    type="submit"
-                                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition"
-                                >
-                                    <Save className="w-3.5 h-3.5" /> Publish Changes
-                                </button>
                             </div>
 
-                            <div className="game-card-user rounded-2xl p-5 space-y-5">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                                        Global Announcement / Maintenance Message
-                                    </label>
-                                    <textarea
-                                        rows={3}
-                                        value={configDraft.announcement}
-                                        onChange={(e) =>
-                                            setConfigDraft({ ...configDraft, announcement: e.target.value })
-                                        }
-                                        placeholder="Leave empty to hide banner. When Maintenance Mode is active, this message appears on the Front Page lock screen."
-                                        className="w-full px-3.5 py-2.5 rounded-xl border text-xs focus:outline-none"
-                                    />
+                            {/* Live Swallowtail Pennant Preview */}
+                            <div className="rounded-2xl bg-[#0D1F44] border border-[#D8B878]/30 p-4 space-y-2.5 shrink-0">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[11px] font-black uppercase tracking-wider text-[#D8B878] inline-flex items-center gap-1.5">
+                                        <Sparkles className="w-3.5 h-3.5" />
+                                        Live Banner Preview
+                                    </span>
+                                    <span className="text-[10px] font-mono text-[#A9B8D6]">
+                                        {configDraft.maintenanceMode
+                                            ? 'Maintenance Red Theme'
+                                            : configDraft.announcement?.trim()
+                                                ? 'Royal Blue & Gold Pennant'
+                                                : 'Banner Hidden (Empty)'}
+                                    </span>
                                 </div>
 
-                                {/* Maintenance Toggle */}
-                                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-4">
-                                    <div className="flex items-start gap-3">
-                                        <Wrench className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                                {configDraft.maintenanceMode || configDraft.announcement?.trim() ? (
+                                    <AnnouncementBanner
+                                        message={configDraft.announcement}
+                                        maintenanceMode={Boolean(configDraft.maintenanceMode)}
+                                    />
+                                ) : (
+                                    <div className="rounded-xl border border-dashed border-white/20 py-4 text-center text-xs text-[#A9B8D6]">
+                                        Type an announcement below or enable Maintenance Mode to preview the swallowtail battle banner.
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Controls 2-Column Body */}
+                            <div className="game-fit-body grid grid-cols-1 lg:grid-cols-12 gap-3 min-h-0">
+                                {/* Left (7 cols): Announcement Composer */}
+                                <form
+                                    onSubmit={handleSaveBroadcast}
+                                    className="lg:col-span-7 rounded-2xl bg-[#0D1F44] border border-white/10 p-4 flex flex-col justify-between gap-3 min-h-0 overflow-hidden"
+                                >
+                                    <div className="space-y-3 overflow-y-auto game-scroll pr-1">
                                         <div>
-                                            <div className="text-xs font-black text-slate-900">Maintenance Mode</div>
-                                            <p className="text-[11px] text-slate-500">
-                                                Locks student sign-in, sign-up, and guest mode on the Front Page. Only registered Admins can log in.
-                                            </p>
+                                            <label className="block text-xs font-bold text-[#FAF6EE] mb-1.5">
+                                                Global Announcement Message
+                                            </label>
+                                            <textarea
+                                                rows={3}
+                                                value={configDraft.announcement}
+                                                onChange={(e) =>
+                                                    setConfigDraft((p) => ({ ...p, announcement: e.target.value }))
+                                                }
+                                                placeholder="e.g. Finals Week Double Star Event is LIVE! Climb to Mythic before Sunday 11:59 PM."
+                                                className="w-full px-3.5 py-2.5 rounded-xl bg-[#09152E] border border-white/15 focus:border-[#D8B878] text-sm text-[#FAF6EE] placeholder:text-slate-500 focus:outline-none resize-none"
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#A9B8D6] block mb-1.5">
+                                                Quick Presets
+                                            </span>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {[
+                                                    'Finals Week Event: Keep your 5x win streak alive for Double Stars!',
+                                                    'New Semester Season Started — Archive your past rank in Progress Report.',
+                                                    'Scheduled server upgrade tonight at 11:00 PM MYT (15 mins downtime).'
+                                                ].map((preset) => (
+                                                    <button
+                                                        key={preset}
+                                                        type="button"
+                                                        onClick={() =>
+                                                            setConfigDraft((p) => ({ ...p, announcement: preset }))
+                                                        }
+                                                        className="text-left text-[11px] px-2.5 py-1.5 rounded-lg bg-[#09152E] hover:bg-[#1E3F8A]/50 border border-white/10 text-[#D6DEF0] transition"
+                                                    >
+                                                        {preset}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10 shrink-0">
+                                        <button
+                                            type="button"
+                                            onClick={handleClearAnnouncement}
+                                            className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-xs font-bold text-[#D6DEF0] transition"
+                                        >
+                                            Clear Banner
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#D8B878] to-[#F5D78E] hover:brightness-105 text-[#09152E] text-xs font-black inline-flex items-center gap-1.5 transition"
+                                        >
+                                            <Megaphone className="w-3.5 h-3.5" />
+                                            <span>Publish Banner</span>
+                                        </button>
+                                    </div>
+                                </form>
+
+                                {/* Right (5 cols): Maintenance Kill Switch */}
+                                <div className="lg:col-span-5 rounded-2xl bg-[#0D1F44] border border-rose-500/35 p-4 flex flex-col justify-between gap-3 min-h-0">
+                                    <div className="space-y-2.5">
+                                        <div className="flex items-center gap-2.5">
+                                            <div
+                                                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${configDraft.maintenanceMode
+                                                        ? 'bg-rose-500/25 text-rose-300 border border-rose-400/50'
+                                                        : 'bg-white/5 text-[#A9B8D6] border border-white/10'
+                                                    }`}
+                                            >
+                                                <Wrench className="w-5 h-5" />
+                                            </div>
+                                            <div>
+                                                <h2 className="text-sm font-black text-[#FAF6EE]">
+                                                    System Maintenance Mode
+                                                </h2>
+                                                <span className="text-[11px] text-[#A9B8D6]">
+                                                    Status:{' '}
+                                                    <strong
+                                                        className={
+                                                            configDraft.maintenanceMode
+                                                                ? 'text-rose-400'
+                                                                : 'text-emerald-400'
+                                                        }
+                                                    >
+                                                        {configDraft.maintenanceMode ? 'ACTIVE (LOCKED)' : 'INACTIVE (OPEN)'}
+                                                    </strong>
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div className="p-3 rounded-xl bg-[#09152E]/85 border border-white/10 text-xs text-[#D6DEF0] space-y-1.5 leading-relaxed">
+                                            <div className="flex items-center gap-1.5 text-rose-300 font-bold">
+                                                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                                <span>When Enabled:</span>
+                                            </div>
+                                            <ul className="list-disc pl-4 space-y-1 text-[11px] text-[#A9B8D6]">
+                                                <li>Student Sign In, Sign Up, and Guest Mode are locked on Front Page.</li>
+                                                <li>Existing student sessions are automatically signed out on reload.</li>
+                                                <li>Only verified Admins (Email + Password + Google) can enter.</li>
+                                            </ul>
                                         </div>
                                     </div>
 
                                     <button
                                         type="button"
-                                        onClick={() =>
-                                            setConfigDraft({
-                                                ...configDraft,
-                                                maintenanceMode: !configDraft.maintenanceMode
-                                            })
-                                        }
-                                        className={`px-4 py-2 rounded-xl text-xs font-black transition shrink-0 ${configDraft.maintenanceMode
-                                                ? 'bg-rose-600 text-white'
-                                                : 'bg-slate-200 text-slate-600'
+                                        onClick={handleToggleMaintenanceImmediate}
+                                        className={`w-full py-2.5 px-4 rounded-xl text-xs font-black uppercase tracking-wider transition flex items-center justify-center gap-2 ${configDraft.maintenanceMode
+                                                ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                                                : 'bg-rose-600 hover:bg-rose-500 text-white'
                                             }`}
                                     >
-                                        {configDraft.maintenanceMode ? 'ACTIVE' : 'OFF'}
+                                        <Wrench className="w-4 h-4" />
+                                        <span>
+                                            {configDraft.maintenanceMode
+                                                ? 'Disable Maintenance Mode'
+                                                : 'Enable Maintenance Mode'}
+                                        </span>
                                     </button>
                                 </div>
-
-                                {/* Live Student Preview */}
-                                <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                                        Banner Preview
-                                    </span>
-                                    {configDraft.maintenanceMode || configDraft.announcement.trim() ? (
-                                        <div
-                                            className={`px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 ${configDraft.maintenanceMode
-                                                    ? 'bg-rose-500/20 border border-rose-400/50 text-rose-200'
-                                                    : 'bg-blue-500/20 border border-blue-400/50 text-blue-100'
-                                                }`}
-                                        >
-                                            <Megaphone className="w-4 h-4 shrink-0" />
-                                            <span>
-                                                {configDraft.maintenanceMode
-                                                    ? configDraft.announcement.trim() ||
-                                                    'Scheduled Maintenance Active — Student login is temporarily paused.'
-                                                    : configDraft.announcement}
-                                            </span>
-                                        </div>
-                                    ) : (
-                                        <div className="text-xs text-slate-500 italic">
-                                            No active banner will be shown to students.
-                                        </div>
-                                    )}
-                                </div>
                             </div>
-                        </form>
+                        </div>
                     )}
 
-                    {/* ==========================================================
-              TAB 5: ADMIN AUDIT LOG
-             ========================================================== */}
+                    {/* ============================================================
+              TAB 5: AUDIT LOGS
+             ============================================================ */}
                     {activeTab === 'audit' && (
-                        <div className="game-fit text-slate-800">
-                            <div className="flex items-center justify-between gap-3 shrink-0">
+                        <div className="game-fit">
+                            <div className="flex flex-wrap items-center justify-between gap-2 shrink-0">
                                 <div>
-                                    <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
-                                        Admin Audit Log
+                                    <h1 className="text-lg md:text-xl font-black text-[#FAF6EE]">
+                                        Admin Audit Logs
                                     </h1>
-                                    <p className="text-xs text-slate-500">
-                                        Chronological record of configuration changes and account actions
+                                    <p className="text-[11px] text-[#A9B8D6]">
+                                        Chronological trail of all moderation, rule changes, and maintenance events
                                     </p>
                                 </div>
 
-                                {auditLogs.length > 0 && (
+                                <div className="flex items-center gap-2">
+                                    <div className="relative">
+                                        <Search className="w-3.5 h-3.5 text-[#A9B8D6] absolute left-3 top-1/2 -translate-y-1/2" />
+                                        <input
+                                            type="text"
+                                            value={auditFilter}
+                                            onChange={(e) => setAuditFilter(e.target.value)}
+                                            placeholder="Filter action or email..."
+                                            className="pl-8 pr-3 py-1.5 rounded-xl bg-[#0D1F44] border border-white/15 focus:border-[#D8B878] text-xs text-[#FAF6EE] placeholder:text-slate-400 focus:outline-none w-48"
+                                        />
+                                    </div>
+
                                     <button
                                         type="button"
-                                        onClick={handleClearAuditLogs}
-                                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-rose-200 text-rose-500 hover:bg-rose-50 text-xs font-bold transition"
+                                        disabled={auditLogs.length === 0}
+                                        onClick={handleExportAuditJson}
+                                        className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-xs font-bold text-[#D6DEF0] inline-flex items-center gap-1.5 disabled:opacity-35"
                                     >
-                                        <Trash2 className="w-3.5 h-3.5" /> Clear Log
+                                        <Download className="w-3.5 h-3.5" />
+                                        <span className="hidden sm:inline">Export</span>
                                     </button>
-                                )}
+
+                                    <button
+                                        type="button"
+                                        disabled={auditLogs.length === 0}
+                                        onClick={handleClearAuditLogs}
+                                        className="px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/30 border border-rose-400/40 text-xs font-bold text-rose-200 inline-flex items-center gap-1.5 disabled:opacity-35"
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                        <span className="hidden sm:inline">Clear</span>
+                                    </button>
+                                </div>
                             </div>
 
-                            <div className="flex-1 min-h-0 game-card-sys rounded-2xl overflow-hidden flex flex-col">
-                                <div className="game-scroll flex-1">
-                                    {auditLogs.length === 0 ? (
-                                        <div className="p-8 text-center text-xs text-slate-400">
-                                            No administrative actions recorded yet.
-                                        </div>
-                                    ) : (
-                                        <table className="w-full text-left border-collapse text-xs">
-                                            <thead className="sticky top-0 z-10">
-                                                <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase">
-                                                    <th className="py-3 px-4">Timestamp</th>
-                                                    <th className="py-3 px-4">Admin</th>
-                                                    <th className="py-3 px-4">Action</th>
-                                                    <th className="py-3 px-4">Target</th>
-                                                    <th className="py-3 px-4">Details</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-100">
-                                                {auditLogs.map((log) => (
-                                                    <tr key={log.id}>
-                                                        <td className="py-3 px-4 font-mono text-slate-500 whitespace-nowrap">
-                                                            {log.timestamp}
-                                                        </td>
-                                                        <td className="py-3 px-4 font-semibold text-slate-700">
-                                                            {log.adminEmail}
-                                                        </td>
-                                                        <td className="py-3 px-4 font-bold text-slate-900">{log.action}</td>
-                                                        <td className="py-3 px-4 font-mono text-[#D8B878]">{log.target}</td>
-                                                        <td className="py-3 px-4 text-slate-500">{log.details}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    )}
-                                </div>
+                            <div className="game-fit-body rounded-2xl bg-[#0D1F44] border border-white/10 p-3 flex flex-col min-h-0 overflow-hidden">
+                                {filteredLogs.length === 0 ? (
+                                    <div className="flex-1 flex flex-col items-center justify-center text-center gap-1.5 text-xs text-[#A9B8D6]">
+                                        <ScrollText className="w-8 h-8 opacity-40" />
+                                        <span>No audit entries found.</span>
+                                    </div>
+                                ) : (
+                                    <div className="game-scroll flex-1 space-y-2 pr-1">
+                                        {filteredLogs.map((log) => (
+                                            <div
+                                                key={log.id}
+                                                className="p-3 rounded-xl bg-[#09152E]/85 border border-white/10 flex flex-wrap items-center justify-between gap-2"
+                                            >
+                                                <div className="min-w-0 space-y-0.5">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <span
+                                                            className={`text-[10px] font-mono font-black px-2 py-0.5 rounded-md ${log.severity === 'danger'
+                                                                    ? 'bg-rose-500/25 text-rose-200 border border-rose-400/40'
+                                                                    : log.severity === 'warn'
+                                                                        ? 'bg-amber-500/25 text-amber-200 border border-amber-400/40'
+                                                                        : 'bg-[#1E3F8A]/60 text-[#F5D78E] border border-[#D8B878]/35'
+                                                                }`}
+                                                        >
+                                                            {log.action}
+                                                        </span>
+                                                        <span className="text-[11px] font-mono text-[#A9B8D6]">
+                                                            by {log.adminEmail}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-xs text-[#FAF6EE]">{log.details}</p>
+                                                </div>
+
+                                                <span className="text-[10px] font-mono text-[#A9B8D6] shrink-0">
+                                                    {log.timestamp}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
                 </div>
             </main>
 
-            {/* ===== ADMIN BOTTOM DOCK ===== */}
+            {/* ===== ADMIN BOTTOM NAVIGATION DOCK ===== */}
             <nav className="game-dock" aria-label="Admin navigation">
                 <div className="game-dock-inner">
-                    {ADMIN_TABS.map((item) => {
+                    {adminMenu.map((item) => {
                         const Icon = item.icon;
                         const active = activeTab === item.id;
                         return (
                             <button
                                 key={item.id}
                                 type="button"
-                                onClick={() => navigateToTab(item.id)}
+                                onClick={() => navigateTab(item.id)}
                                 className={`game-dock-btn ${active ? 'is-active' : ''}`}
                             >
                                 <span className="game-dock-icon">
-                                    <Icon className="w-5 h-5" />
+                                    <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
                                 </span>
                                 <span className="game-dock-label">{item.label}</span>
                             </button>

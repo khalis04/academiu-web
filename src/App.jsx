@@ -20,31 +20,40 @@ import {
   FolderPlus
 } from 'lucide-react';
 
-export function OfficialLogo({ variant = 'full', className = '' }) {
-  const logoSrc = '/logo.png';
+export function OfficialLogo({
+  variant = 'full',
+  size = 'md',
+  className = '',
+  imgClassName = ''
+}) {
+  const logoSrc = '/logo.png'; // Place your renamed logo inside public/logo.png
+
+  const sizeClasses = {
+    sm: 'h-9',
+    md: 'h-11 md:h-12',         // Compact size for GameShell & AdminPanel HUD
+    lg: 'h-24 sm:h-28 md:h-32', // Large size for Front Page
+    xl: 'h-44 sm:h-52 md:h-56'  // Extra-large centerpiece for Loading Screen
+  };
 
   if (variant === 'icon-only') {
     return (
-      <div className={`relative overflow-hidden ${className}`}>
-        <div className="w-[180px] h-[180px] absolute -top-[35px] -left-[30px] scale-[0.32] pointer-events-none transform origin-top-left">
-          <img
-            src={logoSrc}
-            alt="ACADEMIU Icon"
-            className="w-full h-full object-contain"
-            style={{ imageRendering: '-webkit-optimize-contrast' }}
-          />
-        </div>
-        <div className="w-10 h-10" />
+      <div className={`relative overflow-hidden w-10 h-10 ${className}`}>
+        <img
+          src={logoSrc}
+          alt="Clutchup Arena Icon"
+          className="w-full h-full object-contain"
+          style={{ imageRendering: '-webkit-optimize-contrast' }}
+        />
       </div>
     );
   }
 
   return (
-    <div className={`flex items-center ${className}`}>
+    <div className={`flex items-center justify-center ${className}`}>
       <img
         src={logoSrc}
-        alt="ACADEMIU Logo"
-        className="h-10 md:h-12 w-auto object-contain drop-shadow-[0_2px_4px_rgba(15,23,42,0.06)]"
+        alt="Clutchup Arena Logo"
+        className={`${sizeClasses[size] || sizeClasses.md} w-auto object-contain drop-shadow-[0_8px_20px_rgba(216,184,120,0.3)] ${imgClassName}`}
         style={{ imageRendering: '-webkit-optimize-contrast' }}
       />
     </div>
@@ -688,7 +697,7 @@ export default function App() {
 
   if (!isAuthenticated) {
     return (
-      <div className="relative min-h-screen bg-slate-900 overflow-hidden">
+      <div className="relative min-h-screen bg-[#09152E] overflow-hidden">
         <div
           className={`transition-all duration-700 ease-in-out ${isTransitioning
             ? 'opacity-0 scale-105 blur-sm pointer-events-none'
@@ -699,27 +708,32 @@ export default function App() {
         </div>
 
         {isTransitioning && (
-          <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-900/95 backdrop-blur-md">
-            <div className="rounded-3xl bg-slate-800/80 border border-slate-700 shadow-2xl flex flex-col items-center px-10 py-8">
-              <div className="animate-pulse">
-                <RankCrest tierName={rankInfo.currentTier.name} size="xl" />
+          <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#09152E]/95 backdrop-blur-md p-4">
+            <div className="rounded-3xl bg-[#0D1F44]/90 border border-[#D8B878]/30 shadow-2xl flex flex-col items-center px-10 py-10 max-w-md w-full text-center">
+              <div className="animate-pulse mb-3">
+                <OfficialLogo variant="full" size="xl" />
               </div>
-              <div className="mt-5 text-base font-black text-white tracking-wide">
+              <div className="mt-2 text-lg font-black text-[#FAF6EE] tracking-wide">
                 Welcome, {currentUser?.name || 'Student'}
               </div>
-              <div className="text-xs text-slate-400 mt-1">
+              <div className="text-xs text-[#A9B8D6] mt-1 px-4 leading-relaxed">
                 {currentUser?.role === 'admin'
                   ? 'Loading Admin Control Plane...'
                   : currentUser?.isGuest
-                    ? 'Loading temporary Guest session...'
-                    : `Syncing ${rankInfo.currentTier.name} Rank & Subject Folders...`}
+                    ? 'Preparing your temporary arena...'
+                    : `Loading your ${rankInfo.currentTier.name} rank & files...`}
               </div>
-              <div className="mt-5 w-56 h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-700 animate-pulse">
+
+              <div className="mt-6 w-full max-w-[240px] bg-[#09152E] rounded-full overflow-hidden border border-[#D8B878]/20 h-2.5">
                 <div
-                  className="h-full bg-gradient-to-r from-blue-500 to-indigo-400 rounded-full transition-all duration-500 ease-out animate-pulse"
+                  className="h-full bg-gradient-to-r from-[#F5D78E] to-[#D8B878] rounded-full transition-all duration-500 ease-out"
                   style={{ width: `${loadingProgress}%` }}
                 />
               </div>
+
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#D8B878] mt-3 block animate-pulse">
+                Entering Arena...
+              </span>
             </div>
           </div>
         )}
@@ -814,7 +828,7 @@ export default function App() {
             onReplayDrillFile={handleReplaySavedFile}
             onDeleteDrillFile={handleDeleteDrillFile}
             onDeleteSubjectFolder={handleDeleteSubjectFolder}
-            onRenameSubjectFolder={handleRenameSubjectFolder}
+            onRenameSubjectFolder={handleDeleteSubjectFolder}
             onNavigate={(tab) => navigateToTab(tab)}
           />
         )}

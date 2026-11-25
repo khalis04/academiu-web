@@ -1,424 +1,626 @@
 import React, { useState, useMemo } from 'react';
 import {
-    Trophy,
     Swords,
-    ArrowRight,
+    FolderPlus,
+    Trophy,
     Star,
-    BarChart3,
-    Folder,
     AlertTriangle,
-    FolderArchive,
     Calendar,
     Pencil,
     Check,
     X,
-    RotateCcw,
-    CheckCircle2
+    PlusCircle,
+    Target,
+    Database,
+    CheckCircle2,
+    Lock,
+    Settings,
+    User,
+    ListOrdered,
+    ArrowRight
 } from 'lucide-react';
-import { RankCrest, getSeasonDurationParts, formatSeasonDuration } from '../App';
+import { RankCrest, formatSeasonDuration, getSeasonDurationParts } from '../App';
 
 export default function DashboardOverview({
     user,
     rankInfo,
     matchHistory = [],
-    currentSeason = null,
+    currentSeason,
     onUpdateSeason,
     onStartNewSeason,
-    onNavigate = () => { },
+    onNavigate = () => { }
 }) {
-    const [isEditingSeason, setIsEditingSeason] = useState(false);
-    const [seasonDraft, setSeasonDraft] = useState('');
-    const [yearsDraft, setYearsDraft] = useState('0');
-    const [monthsDraft, setMonthsDraft] = useState('0');
+    const [editingSeason, setEditingSeason] = useState(false);
+    const [showLadderModal, setShowLadderModal] = useState(false);
 
-    const playerName = user?.name || 'Player';
-    const totalMatches = matchHistory.length;
-    const avgScore =
-        totalMatches > 0
-            ? Math.round(matchHistory.reduce((sum, m) => sum + m.score, 0) / totalMatches)
-            : 0;
+    const initialParts = getSeasonDurationParts(currentSeason);
+    const [seasonNameDraft, setSeasonNameDraft] = useState(currentSeason?.name || '');
+    const [yearsDraft, setYearsDraft] = useState(initialParts.years);
+    const [monthsDraft, setMonthsDraft] = useState(initialParts.months);
 
-    const starsLeft = rankInfo.nextTier ? rankInfo.starsNeeded - rankInfo.starsInTier : 0;
+    const stats = useMemo(() => {
+        const totalDrills = matchHistory.length;
+        const avgScore =
+            totalDrills > 0
+                ? Math.round(matchHistory.reduce((sum, m) => sum + m.score, 0) / totalDrills)
+                : 0;
+        const weakDrills = matchHistory.filter((m) => m.score < 60);
+        const uniqueWeakTopics = Array.from(
+            new Set(weakDrills.map((m) => (m.topic || '').trim()).filter(Boolean))
+        );
 
-    // Detect unique weak subjects & subtopics (< 60%)
-    const weakItems = useMemo(() => {
-        const seen = new Set();
-        return matchHistory
-            .filter((m) => m.score < 60)
-            .filter((m) => {
-                const key = `${m.topic}::${m.subtopic}`.toLowerCase();
-                if (seen.has(key)) return false;
-                seen.add(key);
-                return true;
-            });
+        return {
+            totalDrills,
+            avgScore,
+            weakCount: weakDrills.length,
+            uniqueWeakTopics
+        };
     }, [matchHistory]);
 
-    const parsedYearsDraft = Math.max(0, parseInt(yearsDraft, 10) || 0);
-    const parsedMonthsDraft = Math.max(0, parseInt(monthsDraft, 10) || 0);
-    const canSaveSeasonEdit =
-        seasonDraft.trim().length > 0 && (parsedYearsDraft > 0 || parsedMonthsDraft > 0);
-
-    const startSeasonEdit = () => {
-        if (!currentSeason) return;
-        const { years, months } = getSeasonDurationParts(currentSeason);
-        setSeasonDraft(currentSeason.name);
-        setYearsDraft(String(years));
-        setMonthsDraft(String(months));
-        setIsEditingSeason(true);
+    const openSeasonEditor = () => {
+        const parts = getSeasonDurationParts(currentSeason);
+        setSeasonNameDraft(currentSeason?.name || '');
+        setYearsDraft(parts.years);
+        setMonthsDraft(parts.months);
+        setEditingSeason(true);
     };
 
-    const saveSeasonEdit = (e) => {
-        if (e) e.preventDefault();
-        if (!canSaveSeasonEdit) return;
+    const handleSaveSeason = (e) => {
+        e.preventDefault();
+        if (!seasonNameDraft.trim()) return;
         if (onUpdateSeason) {
             onUpdateSeason({
-                name: seasonDraft.trim(),
-                durationYears: parsedYearsDraft,
-                durationMonths: parsedMonthsDraft
+                name: seasonNameDraft,
+                durationYears: yearsDraft,
+                durationMonths: monthsDraft
             });
         }
-        setIsEditingSeason(false);
+        setEditingSeason(false);
     };
 
+    const allTiers = rankInfo?.allTiers || [];
+    const currentTierName = rankInfo?.currentTier?.name || 'Warrior';
+    const currentStars = rankInfo?.totalStars ?? 0;
+
+    // Cap visible weak topic pills so the Weak Topics frame never scrolls
+    const MAX_WEAK_CHIPS = 4;
+    const visibleWeakTopics = stats.uniqueWeakTopics.slice(0, MAX_WEAK_CHIPS);
+    const extraWeakCount = Math.max(0, stats.uniqueWeakTopics.length - MAX_WEAK_CHIPS);
+
+    const lobbyBgStyle = {
+        backgroundColor: '#0E2452',
+        backgroundImage:
+            'linear-gradient(45deg, rgba(255,255,255,0.03) 25%, transparent 25%), ' +
+            'linear-gradient(-45deg, rgba(255,255,255,0.03) 25%, transparent 25%), ' +
+            'linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.03) 75%), ' +
+            'linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.03) 75%), ' +
+            'radial-gradient(circle at 50% 45%, #1B4291 0%, #09183B 80%)',
+        backgroundSize: '44px 44px, 44px 44px, 44px 44px, 44px 44px, 100% 100%',
+        backgroundPosition: '0 0, 0 22px, 22px -22px, -22px 0, 0 0'
+    };
+
+    const frameClass =
+        'rounded-xl bg-[#0B1C40]/95 border border-[#D8B878]/45 border-b-[3px] border-b-[#050D21] shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_6px_14px_rgba(3,9,24,0.45)] overflow-hidden';
+
+    const frameHeaderClass =
+        'px-3 py-1.5 bg-gradient-to-b from-[#173678] to-[#102759] border-b border-[#D8B878]/30 flex items-center justify-between shrink-0';
+
     return (
-        <div className="game-fit text-slate-800">
-            {/* Compact Lobby Header */}
-            <div className="flex items-center justify-between gap-3 shrink-0">
-                <div className="min-w-0">
-                    <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight truncate">
-                        Lobby — {playerName}
-                    </h1>
-                    <p className="text-xs text-slate-500">Season standing, active folder, and quick launch</p>
+        <div
+            style={lobbyBgStyle}
+            className="game-fit w-full h-full rounded-2xl border-2 border-[#D8B878]/55 p-2.5 sm:p-3 flex flex-col gap-2.5 overflow-hidden relative text-[#FAF6EE]"
+        >
+            {/* ============================================================
+          ROW 1 (12 COLS): PLAYER PROFILE & SEASON HEADER FRAME
+         ============================================================ */}
+            <div className={`${frameClass} px-3.5 py-2 flex items-center justify-between gap-3 shrink-0`}>
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 rounded-lg bg-[#07122B] border border-[#D8B878]/70 flex items-center justify-center shrink-0">
+                        <User className="w-5 h-5 text-[#F5D78E]" />
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 min-w-0">
+                        <span className="text-sm sm:text-base font-black text-[#FAF6EE] tracking-wide leading-tight truncate">
+                            {user?.name || 'Challenger'}
+                        </span>
+
+                        <span className="hidden sm:inline-block text-[10px] font-black uppercase px-2 py-0.5 rounded bg-[#D8B878]/20 border border-[#D8B878]/55 text-[#F5D78E] shrink-0">
+                            {currentTierName}
+                        </span>
+
+                        {currentSeason && !editingSeason ? (
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#1E3F8A] border border-[#D8B878]/80 shadow-sm">
+                                <Calendar className="w-3 h-3 text-[#F5D78E] shrink-0" />
+                                <span className="text-[11px] font-extrabold text-[#FAF6EE] truncate">
+                                    {currentSeason.name}
+                                </span>
+                                <span className="text-[10px] font-mono font-bold text-[#F5D78E] shrink-0">
+                                    ({formatSeasonDuration(currentSeason)})
+                                </span>
+                                {!user?.isGuest && (
+                                    <button
+                                        type="button"
+                                        onClick={openSeasonEditor}
+                                        title="Edit season details"
+                                        className="ml-0.5 p-0.5 rounded-full bg-white/15 hover:bg-[#D8B878] text-[#FAF6EE] hover:text-[#09152E] transition"
+                                    >
+                                        <Pencil className="w-2.5 h-2.5" />
+                                    </button>
+                                )}
+                            </div>
+                        ) : editingSeason ? (
+                            <form onSubmit={handleSaveSeason} className="flex items-center gap-1 flex-wrap">
+                                <input
+                                    type="text"
+                                    value={seasonNameDraft}
+                                    onChange={(e) => setSeasonNameDraft(e.target.value)}
+                                    placeholder="Season name"
+                                    className="px-2 py-0.5 rounded bg-[#07122B] border border-[#D8B878]/70 text-[#FAF6EE] text-[11px] font-bold w-32 focus:outline-none"
+                                />
+                                <input
+                                    type="number"
+                                    min="0"
+                                    max="10"
+                                    value={yearsDraft}
+                                    onChange={(e) => setYearsDraft(e.target.value)}
+                                    className="px-1.5 py-0.5 rounded bg-[#07122B] border border-[#D8B878]/70 text-[#FAF6EE] text-[11px] font-mono font-bold w-11 focus:outline-none"
+                                />
+                                <span className="text-[10px] font-bold text-[#F5D78E]">Y</span>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    max="11"
+                                    value={monthsDraft}
+                                    onChange={(e) => setMonthsDraft(e.target.value)}
+                                    className="px-1.5 py-0.5 rounded bg-[#07122B] border border-[#D8B878]/70 text-[#FAF6EE] text-[11px] font-mono font-bold w-11 focus:outline-none"
+                                />
+                                <span className="text-[10px] font-bold text-[#F5D78E]">M</span>
+                                <button
+                                    type="submit"
+                                    className="p-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white"
+                                    title="Save"
+                                >
+                                    <Check className="w-3 h-3" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setEditingSeason(false)}
+                                    className="p-1 rounded bg-white/15 hover:bg-white/25 text-white"
+                                    title="Cancel"
+                                >
+                                    <X className="w-3 h-3" />
+                                </button>
+                            </form>
+                        ) : null}
+                    </div>
                 </div>
 
-                <div className="hidden sm:flex items-center gap-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 shrink-0">
-                    <span className="inline-flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-sm bg-[#0A1630] border border-[#8FB4FF]/50" />
-                        System Info
-                    </span>
-                    <span className="inline-flex items-center gap-1.5">
-                        <span className="w-2.5 h-2.5 rounded-sm bg-[#1C3872] border border-[#D8B878]" />
-                        Your Content
-                    </span>
+                {/* Right: Trophy Stars + Settings */}
+                <div className="flex items-center gap-2 shrink-0">
+                    <button
+                        type="button"
+                        onClick={() => setShowLadderModal(true)}
+                        title="View 7-Tier Rank Ladder"
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#07122B] border border-[#D8B878]/70 hover:border-[#F5D78E] transition"
+                    >
+                        <Trophy className="w-4 h-4 text-[#F5D78E]" />
+                        <span className="text-sm font-black font-mono text-[#FAF6EE] leading-none">
+                            {currentStars} ★
+                        </span>
+                    </button>
+
+                    <button
+                        type="button"
+                        onClick={() => onNavigate('settings')}
+                        title="Settings"
+                        aria-label="Settings"
+                        className="w-9 h-9 rounded-lg bg-gradient-to-b from-[#254E9E] to-[#14306B] border border-[#93B8FF]/45 border-b-[3px] border-b-[#071433] flex items-center justify-center hover:brightness-110 active:translate-y-0.5 transition"
+                    >
+                        <Settings className="w-4 h-4 text-[#FAF6EE]" />
+                    </button>
                 </div>
             </div>
 
-            {/* Main 2-Column Command Grid */}
-            <div className="game-fit-body grid grid-cols-1 lg:grid-cols-12 gap-3 min-h-0">
-                {/* LEFT COLUMN (7 cols): SYSTEM TELEMETRY + RANK ARENA HERO */}
-                <div className="lg:col-span-7 flex flex-col gap-3 min-h-0">
-                    {/* Top Telemetry Strip: Average Score & Total Stars */}
-                    <div className="grid grid-cols-2 gap-3 shrink-0">
-                        <div className="game-card-sys px-4 py-3.5 rounded-2xl flex items-center justify-between">
-                            <div>
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                                    Average Score
-                                </span>
-                                <div className="text-2xl font-black font-mono text-slate-900 mt-0.5">
-                                    {totalMatches > 0 ? `${avgScore}%` : '—'}
-                                </div>
-                            </div>
-                            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                                <BarChart3 className="w-5 h-5" />
-                            </div>
+            {/* ============================================================
+          ROW 2 (3 + 6 + 3 COLS): SIDE FRAMES + OPEN FRAMELESS CENTER CREST
+         ============================================================ */}
+            <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-2.5 overflow-hidden">
+                {/* ---------- LEFT COLUMN (3 COLS): RANK PROGRESS + QUICK ACCESS ---------- */}
+                <div className="lg:col-span-3 flex flex-col gap-2.5 min-h-0 overflow-hidden">
+                    {/* Frame A: Next Rank Progress */}
+                    <div className={`${frameClass} flex-1 min-h-0 flex flex-col justify-between`}>
+                        <div className={frameHeaderClass}>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-[#F5D78E]">
+                                Rank Progress
+                            </span>
+                            <span className="text-[10px] font-mono font-black text-[#FAF6EE]">
+                                {rankInfo?.nextTier
+                                    ? `${rankInfo.starsInTier}/${rankInfo.starsNeeded} ★`
+                                    : 'MAX'}
+                            </span>
                         </div>
 
-                        <div className="game-card-sys px-4 py-3.5 rounded-2xl flex items-center justify-between">
-                            <div>
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                                    Total Stars
-                                </span>
-                                <div className="text-2xl font-black font-mono text-slate-900 mt-0.5">
-                                    {rankInfo.totalStars}
+                        <div className="flex-1 min-h-0 p-3 flex flex-col justify-between gap-2">
+                            <div className="space-y-1.5">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-lg bg-[#07122B] border border-[#D8B878]/60 flex items-center justify-center shrink-0">
+                                        <Star className="w-4 h-4 text-[#F5D78E] fill-[#F5D78E]" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <div className="text-xs font-black text-[#FAF6EE] truncate">
+                                            {rankInfo?.nextTier
+                                                ? `Next: ${rankInfo.nextTier.name}`
+                                                : 'Mythic Champion'}
+                                        </div>
+                                        <div className="text-[10px] text-[#A9B8D6] truncate">
+                                            {rankInfo?.nextTier
+                                                ? `${Math.max(0, rankInfo.nextTier.min - currentStars)} ★ needed`
+                                                : 'Top division unlocked'}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="w-full h-2.5 rounded-full bg-[#07122B] border border-white/15 overflow-hidden">
+                                    <div
+                                        className="h-full rounded-full bg-gradient-to-r from-[#D8B878] to-[#F7DC94] transition-all duration-500"
+                                        style={{ width: `${rankInfo?.progressPct ?? 0}%` }}
+                                    />
                                 </div>
                             </div>
-                            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-500 flex items-center justify-center shrink-0">
-                                <Star className="w-5 h-5 fill-amber-500" />
-                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() => setShowLadderModal(true)}
+                                className="w-full py-1.5 px-2.5 rounded-lg bg-gradient-to-b from-[#234A99] to-[#15316E] border border-[#93B8FF]/40 border-b-[3px] border-b-[#071433] hover:brightness-110 active:translate-y-0.5 flex items-center justify-center gap-1.5 text-[11px] font-black text-[#FAF6EE] transition"
+                            >
+                                <ListOrdered className="w-3.5 h-3.5 text-[#F5D78E]" />
+                                <span>7-Tier Ladder</span>
+                            </button>
                         </div>
                     </div>
 
-                    {/* Primary Hero: Rank Crest + Tier Progress + Play CTA */}
-                    <div className="flex-1 min-h-0 game-card-sys rounded-2xl p-6 flex flex-col items-center justify-center text-center gap-5">
-                        <div className="flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left">
-                            <RankCrest tierName={rankInfo.currentTier.name} size="xl" />
-
-                            <div className="space-y-2.5 max-w-sm w-full">
-                                <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md border border-blue-200">
-                                    {rankInfo.currentTier.name} Division
-                                </span>
-
-                                <h2 className="text-2xl md:text-3xl font-black text-slate-900 leading-tight">
-                                    {rankInfo.nextTier
-                                        ? `${starsLeft} ${starsLeft === 1 ? 'Star' : 'Stars'} to ${rankInfo.nextTier.name}`
-                                        : 'Mythic Division Reached'}
-                                </h2>
-
-                                {/* Tier Progress Bar */}
-                                <div className="space-y-1.5 pt-1">
-                                    <div className="flex items-center justify-between text-xs font-mono font-bold text-slate-400">
-                                        <span>
-                                            {rankInfo.nextTier
-                                                ? `Progress to ${rankInfo.nextTier.name}`
-                                                : 'Mythic (∞)'}
-                                        </span>
-                                        <span className="text-[#D8B878]">
-                                            {rankInfo.nextTier
-                                                ? `${rankInfo.starsInTier} / ${rankInfo.starsNeeded} ★`
-                                                : `${rankInfo.totalStars} ★`}
-                                        </span>
-                                    </div>
-                                    <div className="w-full h-2.5 rounded-full bg-slate-200 overflow-hidden">
-                                        <div
-                                            className="h-full rounded-full bg-gradient-to-r from-[#F5D78E] to-[#D8B878] transition-all duration-300"
-                                            style={{ width: `${rankInfo.progressPct ?? 0}%` }}
-                                        />
-                                    </div>
-                                </div>
-
-                                <p className="text-[11px] text-slate-500">
-                                    60%+ = 1 Star • 80%+ = 2 Stars • 100% = 3 Stars
-                                </p>
-                            </div>
+                    {/* Frame B: Quick Access (Folders + Vault) */}
+                    <div className={`${frameClass} flex-1 min-h-0 flex flex-col justify-between`}>
+                        <div className={frameHeaderClass}>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-[#F5D78E]">
+                                Quick Access
+                            </span>
                         </div>
 
-                        <div className="w-full max-w-sm pt-2 border-t border-slate-100">
+                        <div className="flex-1 min-h-0 p-2.5 flex flex-col justify-center gap-2">
                             <button
                                 type="button"
-                                onClick={() => onNavigate('generator')}
-                                className="w-full inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-7 py-3.5 rounded-xl transition"
+                                onClick={() => onNavigate('registration')}
+                                className="flex-1 px-3 py-2 rounded-lg bg-gradient-to-b from-[#1B3C82] to-[#112759] border border-[#D8B878]/35 border-b-[3px] border-b-[#06112B] hover:border-[#F5D78E] hover:brightness-110 flex items-center justify-between gap-2 text-left transition"
                             >
-                                <Swords className="w-4 h-4" />
-                                <span>Start Ranked Drill</span>
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                    <FolderPlus className="w-4 h-4 text-[#F5D78E] shrink-0" />
+                                    <div className="min-w-0">
+                                        <div className="text-xs font-black text-[#FAF6EE] truncate">
+                                            Subject Folders
+                                        </div>
+                                        <div className="text-[10px] text-[#A9B8D6] truncate">
+                                            Manage season subjects
+                                        </div>
+                                    </div>
+                                </div>
+                                <ArrowRight className="w-3.5 h-3.5 text-[#D8B878] shrink-0" />
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => onNavigate('records')}
+                                className="flex-1 px-3 py-2 rounded-lg bg-gradient-to-b from-[#1B3C82] to-[#112759] border border-[#D8B878]/35 border-b-[3px] border-b-[#06112B] hover:border-[#F5D78E] hover:brightness-110 flex items-center justify-between gap-2 text-left transition"
+                            >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                    <Database className="w-4 h-4 text-sky-300 shrink-0" />
+                                    <div className="min-w-0">
+                                        <div className="text-xs font-black text-[#FAF6EE] truncate">
+                                            Records Vault
+                                        </div>
+                                        <div className="text-[10px] text-[#A9B8D6] truncate">
+                                            Browse & replay drills
+                                        </div>
+                                    </div>
+                                </div>
+                                <ArrowRight className="w-3.5 h-3.5 text-[#D8B878] shrink-0" />
                             </button>
                         </div>
                     </div>
                 </div>
 
-                {/* RIGHT COLUMN (5 cols): SEASON FOLDER + WEAKNESS + SHORTCUTS */}
-                <div className="lg:col-span-5 flex flex-col gap-3 min-h-0">
-                    {/* USER CONTENT: Active Season Big Folder */}
-                    {currentSeason && (
-                        <div className="game-card-user rounded-2xl p-4 flex flex-col gap-3 shrink-0">
-                            <div className="flex items-center justify-between gap-2">
-                                <span className="text-[10px] font-black uppercase tracking-wider text-[#D8B878] inline-flex items-center gap-1.5">
-                                    <FolderArchive className="w-3.5 h-3.5" />
-                                    Active Season Folder
-                                </span>
-                                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-slate-50 border border-slate-200 text-slate-500">
-                                    <Calendar className="w-3 h-3" />
-                                    {formatSeasonDuration(currentSeason)}
-                                </span>
-                            </div>
-
-                            {isEditingSeason ? (
-                                <form onSubmit={saveSeasonEdit} className="space-y-2.5">
-                                    <div>
-                                        <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-                                            Season Name
-                                        </label>
-                                        <input
-                                            type="text"
-                                            autoFocus
-                                            value={seasonDraft}
-                                            onChange={(e) => setSeasonDraft(e.target.value)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Escape') setIsEditingSeason(false);
-                                            }}
-                                            placeholder="e.g. Tingkatan 1, Sem 1"
-                                            className="w-full px-3 py-1.5 rounded-xl border text-xs font-bold focus:outline-none"
-                                        />
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div>
-                                            <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-                                                Years
-                                            </label>
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                max="20"
-                                                value={yearsDraft}
-                                                onChange={(e) => setYearsDraft(e.target.value)}
-                                                className="w-full px-3 py-1.5 rounded-xl border text-xs font-mono font-bold focus:outline-none"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">
-                                                Months
-                                            </label>
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                max="60"
-                                                value={monthsDraft}
-                                                onChange={(e) => setMonthsDraft(e.target.value)}
-                                                className="w-full px-3 py-1.5 rounded-xl border text-xs font-mono font-bold focus:outline-none"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center justify-between gap-2 pt-0.5">
-                                        <span className="text-[10px] font-mono text-slate-400">
-                                            {parsedYearsDraft > 0 || parsedMonthsDraft > 0
-                                                ? formatSeasonDuration({
-                                                    durationYears: parsedYearsDraft,
-                                                    durationMonths: parsedMonthsDraft
-                                                })
-                                                : 'Enter at least 1 month or year'}
-                                        </span>
-
-                                        <div className="flex items-center gap-1.5">
-                                            <button
-                                                type="button"
-                                                onClick={() => setIsEditingSeason(false)}
-                                                title="Cancel"
-                                                className="p-1.5 rounded-xl bg-slate-100 text-slate-600 shrink-0"
-                                            >
-                                                <X className="w-3.5 h-3.5" />
-                                            </button>
-                                            <button
-                                                type="submit"
-                                                disabled={!canSaveSeasonEdit}
-                                                title="Save Changes"
-                                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-emerald-600 text-white text-[11px] font-bold disabled:opacity-40 shrink-0"
-                                            >
-                                                <Check className="w-3.5 h-3.5" />
-                                                Save
-                                            </button>
-                                        </div>
-                                    </div>
-                                </form>
-                            ) : (
-                                <>
-                                    <div className="flex items-center justify-between gap-2">
-                                        <div className="flex items-center gap-1.5 min-w-0">
-                                            <h3 className="text-base font-black text-slate-900 truncate">
-                                                {currentSeason.name}
-                                            </h3>
-                                            <button
-                                                type="button"
-                                                onClick={startSeasonEdit}
-                                                title="Edit Season Name & Duration"
-                                                className="p-1 rounded-md text-slate-400 hover:text-[#D8B878] transition shrink-0"
-                                            >
-                                                <Pencil className="w-3.5 h-3.5" />
-                                            </button>
-                                        </div>
-
-                                        <button
-                                            type="button"
-                                            onClick={onStartNewSeason}
-                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold transition shrink-0"
-                                        >
-                                            <RotateCcw className="w-3 h-3" />
-                                            New Season
-                                        </button>
-                                    </div>
-
-                                    <p className="text-[11px] text-slate-500 leading-relaxed">
-                                        Stores all subject folders, drills, and rank progress. Starting a new season archives this folder to your Season Report.
-                                    </p>
-                                </>
-                            )}
+                {/* ---------- CENTER COLUMN (6 COLS): FRAMELESS RANK CREST & PLAQUE ---------- */}
+                <div className="lg:col-span-6 flex flex-col items-center justify-center gap-3 min-h-0 p-2">
+                    {/* Frameless & Borderless Rank Crest */}
+                    <button
+                        type="button"
+                        onClick={() => setShowLadderModal(true)}
+                        title="Click to inspect all 7 Rank Divisions"
+                        className="group bg-transparent border-0 p-0 shadow-none outline-none focus:outline-none flex items-center justify-center shrink-0 cursor-pointer transition-transform duration-300 hover:scale-105"
+                    >
+                        <div className="scale-110 sm:scale-125">
+                            <RankCrest tierName={currentTierName} size="xl" />
                         </div>
-                    )}
+                    </button>
 
-                    {/* ALERT / STATUS: Weakness Radar */}
-                    {weakItems.length > 0 ? (
-                        <div className="game-card-alert rounded-2xl p-4 flex flex-col gap-2.5 shrink-0">
-                            <div className="flex items-center justify-between gap-2">
-                                <span className="text-[10px] font-black uppercase tracking-wider text-rose-200 inline-flex items-center gap-1.5">
-                                    <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
-                                    Weak Topics ({weakItems.length})
-                                </span>
-                                <button
-                                    type="button"
-                                    onClick={() => onNavigate('records')}
-                                    className="text-[11px] font-bold text-rose-200 hover:text-white underline underline-offset-2"
-                                >
-                                    Fix in Vault
-                                </button>
-                            </div>
-
-                            <div className="flex flex-wrap gap-1.5">
-                                {weakItems.slice(0, 3).map((item) => (
-                                    <span
-                                        key={item.id}
-                                        className="text-[11px] font-bold bg-rose-950/60 border border-rose-400/40 text-rose-100 px-2.5 py-1 rounded-lg"
-                                    >
-                                        {item.topic}: <span className="text-rose-300">{item.subtopic}</span> ({item.score}%)
-                                    </span>
-                                ))}
-                                {weakItems.length > 3 && (
-                                    <span className="text-[11px] font-bold text-rose-300 self-center">
-                                        +{weakItems.length - 3} more
-                                    </span>
-                                )}
-                            </div>
+                    {/* Compact Division Plaque */}
+                    <div className="px-6 py-1.5 rounded-xl bg-gradient-to-b from-[#1A2B52] to-[#0B142B] border border-[#D8B878] border-b-[3px] border-b-[#7A5B22] shadow-lg text-center shrink-0 mt-1">
+                        <div className="text-sm sm:text-base font-black text-[#FAF6EE] tracking-wide leading-tight">
+                            {currentTierName}
                         </div>
-                    ) : (
-                        <div className="game-card-sys rounded-2xl px-4 py-3 flex items-center gap-2.5 shrink-0">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                            <span className="text-xs font-bold text-slate-700">
-                                All practiced topics are above the 60% target.
+                        <div className="text-[9px] sm:text-[10px] font-mono font-bold text-[#F5D78E] uppercase tracking-wider mt-0.5">
+                            {rankInfo?.nextTier
+                                ? `Total: ${currentStars} ★ • ${Math.max(0, rankInfo.nextTier.min - currentStars)} ★ Needed`
+                                : `Total: ${currentStars} ★ • Max Rank`}
+                        </div>
+                    </div>
+                </div>
+
+                {/* ---------- RIGHT COLUMN (3 COLS): WEAK TOPICS + SEASON COMMANDS ---------- */}
+                <div className="lg:col-span-3 flex flex-col gap-2.5 min-h-0 overflow-hidden">
+                    {/* Frame C: Weak Topics (Topic Names Only, Zero Scroll) */}
+                    <div className={`${frameClass} flex-1 min-h-0 flex flex-col justify-between`}>
+                        <div className={frameHeaderClass}>
+                            <div className="flex items-center gap-1.5">
+                                <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                                <span className="text-[10px] font-black uppercase tracking-widest text-rose-300">
+                                    Weak Topics (&lt; 60%)
+                                </span>
+                            </div>
+                            <span className="text-[10px] font-mono font-black px-1.5 py-0.5 rounded bg-rose-600/80 text-white">
+                                {stats.uniqueWeakTopics.length}
                             </span>
                         </div>
-                    )}
 
-                    {/* USER CONTENT: Side-by-Side Workspace Shortcuts */}
-                    <div className="flex-1 min-h-0 grid grid-cols-2 gap-3">
-                        <button
-                            type="button"
-                            onClick={() => onNavigate('records')}
-                            className="text-left game-card-user p-4 rounded-2xl transition group flex flex-col justify-between"
-                        >
-                            <div className="space-y-2.5">
-                                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-                                    <Folder className="w-5 h-5" />
+                        <div className="flex-1 min-h-0 p-3 flex flex-col justify-between gap-2 overflow-hidden">
+                            {stats.uniqueWeakTopics.length === 0 ? (
+                                <div className="flex-1 flex flex-col items-center justify-center text-center gap-1 text-emerald-300">
+                                    <CheckCircle2 className="w-5 h-5 shrink-0" />
+                                    <span className="text-[11px] font-bold leading-snug">
+                                        All completed topics are above 60%!
+                                    </span>
                                 </div>
-                                <div>
-                                    <h3 className="text-sm font-black text-slate-900 group-hover:text-[#D8B878] transition">
-                                        Subject Vault
-                                    </h3>
-                                    <p className="text-[11px] text-slate-500 mt-0.5">
-                                        Saved drills & weak topics
-                                    </p>
+                            ) : (
+                                <div className="flex flex-wrap content-start gap-1.5 overflow-hidden">
+                                    {visibleWeakTopics.map((topicName) => (
+                                        <span
+                                            key={topicName}
+                                            className="px-2.5 py-1 rounded-lg bg-rose-500/20 border border-rose-400/50 text-[11px] font-bold text-rose-100 truncate max-w-full"
+                                        >
+                                            {topicName}
+                                        </span>
+                                    ))}
+                                    {extraWeakCount > 0 && (
+                                        <span className="px-2 py-1 rounded-lg bg-white/10 border border-white/25 text-[10px] font-mono font-bold text-[#F5D78E]">
+                                            +{extraWeakCount} more
+                                        </span>
+                                    )}
                                 </div>
-                            </div>
-                            <div className="mt-3 flex items-center justify-between text-xs font-bold text-[#D8B878]">
-                                <span>Open</span>
-                                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition" />
-                            </div>
-                        </button>
+                            )}
 
-                        <button
-                            type="button"
-                            onClick={() => onNavigate('stats')}
-                            className="text-left game-card-user p-4 rounded-2xl transition group flex flex-col justify-between"
-                        >
-                            <div className="space-y-2.5">
-                                <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-                                    <Trophy className="w-5 h-5" />
+                            <button
+                                type="button"
+                                onClick={() => onNavigate('stats')}
+                                className="w-full py-1.5 px-2.5 rounded-lg bg-rose-600/25 hover:bg-rose-600/40 border border-rose-400/50 text-[11px] font-black text-rose-100 transition shrink-0"
+                            >
+                                Review in Report →
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Frame D: Season Commands (Report + New Season) */}
+                    <div className={`${frameClass} flex-1 min-h-0 flex flex-col justify-between`}>
+                        <div className={frameHeaderClass}>
+                            <span className="text-[10px] font-black uppercase tracking-widest text-[#F5D78E]">
+                                Season Commands
+                            </span>
+                        </div>
+
+                        <div className="flex-1 min-h-0 p-2.5 flex flex-col justify-center gap-2">
+                            <button
+                                type="button"
+                                onClick={() => onNavigate('stats')}
+                                className="flex-1 px-3 py-2 rounded-lg bg-gradient-to-b from-[#1B3C82] to-[#112759] border border-[#D8B878]/35 border-b-[3px] border-b-[#06112B] hover:border-[#F5D78E] hover:brightness-110 flex items-center justify-between gap-2 text-left transition"
+                            >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                    <Trophy className="w-4 h-4 text-[#F5D78E] shrink-0" />
+                                    <div className="min-w-0">
+                                        <div className="text-xs font-black text-[#FAF6EE] truncate">
+                                            Rank Report
+                                        </div>
+                                        <div className="text-[10px] text-[#A9B8D6] truncate">
+                                            Charts & archives
+                                        </div>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h3 className="text-sm font-black text-slate-900 group-hover:text-[#D8B878] transition">
-                                        Season Report
-                                    </h3>
-                                    <p className="text-[11px] text-slate-500 mt-0.5">
-                                        Rank ladder & archives
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="mt-3 flex items-center justify-between text-xs font-bold text-[#D8B878]">
-                                <span>View</span>
-                                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition" />
-                            </div>
-                        </button>
+                                <ArrowRight className="w-3.5 h-3.5 text-[#D8B878] shrink-0" />
+                            </button>
+
+                            {!user?.isGuest && onStartNewSeason ? (
+                                <button
+                                    type="button"
+                                    onClick={onStartNewSeason}
+                                    className="flex-1 px-3 py-2 rounded-lg bg-gradient-to-b from-[#1B3C82] to-[#112759] border border-[#D8B878]/35 border-b-[3px] border-b-[#06112B] hover:border-[#F5D78E] hover:brightness-110 flex items-center justify-between gap-2 text-left transition"
+                                >
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <PlusCircle className="w-4 h-4 text-emerald-300 shrink-0" />
+                                        <div className="min-w-0">
+                                            <div className="text-xs font-black text-[#FAF6EE] truncate">
+                                                New Season
+                                            </div>
+                                            <div className="text-[10px] text-[#A9B8D6] truncate">
+                                                Archive & reset rank
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <ArrowRight className="w-3.5 h-3.5 text-[#D8B878] shrink-0" />
+                                </button>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => onNavigate('generator')}
+                                    className="flex-1 px-3 py-2 rounded-lg bg-gradient-to-b from-[#1B3C82] to-[#112759] border border-[#D8B878]/35 border-b-[3px] border-b-[#06112B] hover:border-[#F5D78E] hover:brightness-110 flex items-center justify-between gap-2 text-left transition"
+                                >
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <Swords className="w-4 h-4 text-[#F5D78E] shrink-0" />
+                                        <div className="min-w-0">
+                                            <div className="text-xs font-black text-[#FAF6EE] truncate">
+                                                Quick Practice
+                                            </div>
+                                            <div className="text-[10px] text-[#A9B8D6] truncate">
+                                                Jump straight into drill
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <ArrowRight className="w-3.5 h-3.5 text-[#D8B878] shrink-0" />
+                                </button>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
+
+            {/* ============================================================
+          ROW 3 (3 + 6 + 3 COLS): DRILLS PLAYED | BATTLE | AVG ACCURACY
+         ============================================================ */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 items-stretch shrink-0">
+                {/* Bottom Left (3 cols): Drills Played */}
+                <button
+                    type="button"
+                    onClick={() => onNavigate('stats')}
+                    className={`${frameClass} lg:col-span-3 flex flex-col text-left hover:brightness-110 transition`}
+                >
+                    <div className="px-3 py-1 bg-[#14306B] border-b border-[#D8B878]/30 text-[10px] font-black uppercase tracking-widest text-[#B8C7E4] text-center">
+                        Drills Played
+                    </div>
+                    <div className="px-3 py-2 flex items-center justify-center gap-3 flex-1">
+                        <div className="w-9 h-9 rounded-lg bg-[#07122B] border border-sky-400/50 flex items-center justify-center shrink-0">
+                            <Swords className="w-4 h-4 text-sky-400" />
+                        </div>
+                        <div>
+                            <div className="text-xl font-black font-mono text-[#FAF6EE] leading-none">
+                                {stats.totalDrills}
+                            </div>
+                            <div className="text-[10px] font-bold uppercase text-[#A9B8D6] mt-0.5">
+                                Season Total
+                            </div>
+                        </div>
+                    </div>
+                </button>
+
+                {/* Bottom Center (6 cols): Tactile 3D Golden BATTLE Button */}
+                <div className="lg:col-span-6 flex items-center justify-center">
+                    <button
+                        type="button"
+                        onClick={() => onNavigate('generator')}
+                        className="w-full max-w-[340px] h-full min-h-[60px] py-3 px-6 rounded-2xl bg-gradient-to-b from-[#FFD44D] via-[#F5A623] to-[#DF8209] border-2 border-[#FFF2B2] border-b-[5px] border-b-[#924E00] shadow-[inset_0_2px_0_rgba(255,255,255,0.45),0_8px_18px_rgba(4,10,26,0.55)] hover:brightness-105 active:translate-y-0.5 active:border-b-2 flex items-center justify-center gap-2.5 cursor-pointer transition"
+                    >
+                        <Swords className="w-6 h-6 text-white drop-shadow-[0_2px_0_rgba(120,60,0,0.9)]" />
+                        <span className="text-xl sm:text-2xl font-black uppercase tracking-wider text-white drop-shadow-[0_2px_0_rgba(120,60,0,0.9)]">
+                            Battle
+                        </span>
+                    </button>
+                </div>
+
+                {/* Bottom Right (3 cols): Avg Accuracy */}
+                <button
+                    type="button"
+                    onClick={() => onNavigate('stats')}
+                    className="lg:col-span-3 rounded-xl bg-gradient-to-b from-[#0E5440] to-[#083327] border border-emerald-400/60 border-b-[3px] border-b-[#041F17] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_6px_14px_rgba(3,9,24,0.45)] overflow-hidden flex flex-col text-left hover:brightness-110 transition"
+                >
+                    <div className="px-3 py-1 bg-emerald-800/90 border-b border-emerald-300/30 text-[10px] font-black uppercase tracking-widest text-emerald-100 text-center">
+                        Avg Accuracy
+                    </div>
+                    <div className="px-3 py-2 flex items-center justify-center gap-3 flex-1">
+                        <div className="w-9 h-9 rounded-lg bg-emerald-950/90 border border-emerald-400/60 flex items-center justify-center shrink-0">
+                            <Target className="w-4 h-4 text-emerald-300" />
+                        </div>
+                        <div>
+                            <div className="text-xl font-black font-mono text-emerald-300 leading-none">
+                                {stats.avgScore}%
+                            </div>
+                            <div className="text-[10px] font-bold uppercase text-emerald-100/80 mt-0.5">
+                                Pass Target 60%
+                            </div>
+                        </div>
+                    </div>
+                </button>
+            </div>
+
+            {/* ============================================================
+          7-TIER RANK LADDER MODAL
+         ============================================================ */}
+            {showLadderModal && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4"
+                    onClick={() => setShowLadderModal(false)}
+                >
+                    <div
+                        className="w-full max-w-md rounded-2xl bg-[#0D1F44] border-2 border-[#D8B878]/70 shadow-2xl overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="px-4 py-3 bg-[#09152E] border-b border-[#D8B878]/35 flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Trophy className="w-4 h-4 text-[#F5D78E]" />
+                                <span className="text-sm font-black uppercase tracking-wider text-[#FAF6EE]">
+                                    Season Rank Ladder
+                                </span>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowLadderModal(false)}
+                                className="p-1 rounded-lg bg-white/10 hover:bg-white/20 text-[#FAF6EE]"
+                                aria-label="Close Rank Ladder"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        <div className="p-3.5 space-y-2 max-h-[70dvh] overflow-y-auto game-scroll">
+                            {allTiers.map((tier) => {
+                                const isCurrent = currentTierName === tier.name;
+                                const isUnlocked = currentStars >= tier.min;
+                                return (
+                                    <div
+                                        key={tier.name}
+                                        className={`px-3 py-2 rounded-xl border flex items-center justify-between gap-3 ${isCurrent
+                                            ? 'bg-[#1E3F8A]/75 border-[#F5D78E]'
+                                            : isUnlocked
+                                                ? 'bg-[#09152E]/85 border-white/15'
+                                                : 'bg-[#09152E]/45 border-white/10 opacity-65'
+                                            }`}
+                                    >
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <RankCrest tierName={tier.name} size="sm" />
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-black text-[#FAF6EE]">
+                                                        {tier.name}
+                                                    </span>
+                                                    {isCurrent && (
+                                                        <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-[#F5D78E] text-[#09152E]">
+                                                            Current
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <span className="text-[11px] font-mono text-[#A9B8D6]">
+                                                    Requires {tier.min} ★
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {isUnlocked ? (
+                                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                                        ) : (
+                                            <Lock className="w-4 h-4 text-slate-400 shrink-0" />
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
